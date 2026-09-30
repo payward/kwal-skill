@@ -7,11 +7,6 @@ Requires Python 3.10 or later on Linux or macOS. The helpers use only the Python
 standard library. You need access to the Kwal sandbox gateway and your own wallet;
 see [setup and prerequisites](skills/agent-payment/references/setup.md).
 
-## Set up with your agent
-
-Copy the [agent setup prompt](SETUP_PROMPT.md) into your coding agent. The agent
-installs the skill from `main` and tells you how to start it.
-
 ## Install
 
 This repository is a complete plugin and marketplace.

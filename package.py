@@ -18,7 +18,7 @@ import zipfile
 
 SKILL = Path("skills/agent-payment")
 FILES = (
-    "README.md", "SETUP_PROMPT.md", "CHANGELOG.md", "package.py", "plugin.json",
+    "README.md", "CHANGELOG.md", "package.py", "plugin.json",
     ".claude-plugin/plugin.json", ".claude-plugin/marketplace.json",
     ".codex-plugin/plugin.json", ".agents/plugins/marketplace.json",
     str(SKILL / "SKILL.md"), str(SKILL / "agents/openai.yaml"),
