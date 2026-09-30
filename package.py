@@ -132,10 +132,11 @@ def check(root: Path) -> None:
         extracted = temporary / "unpacked/agent-payment"
         validate(extracted)
         env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
-        subprocess.run([sys.executable, "-B", str(SKILL / "scripts/register.py"), "--help"],
+        # The argv is the running interpreter and fixed package paths, with no shell and no external input.
+        subprocess.run([sys.executable, "-B", str(SKILL / "scripts/register.py"), "--help"],  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit.dangerous-subprocess-use-audit
                        cwd=extracted, env=env, check=True, stdout=subprocess.DEVNULL)
         for tests in (Path("tests"), SKILL / "tests"):
-            subprocess.run([sys.executable, "-B", "-m", "unittest", "discover",
+            subprocess.run([sys.executable, "-B", "-m", "unittest", "discover",  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit.dangerous-subprocess-use-audit
                             "-s", str(tests), "-t", str(tests)],
                            cwd=extracted, env=env, check=True)
     print("Extracted plugin checks passed.")
