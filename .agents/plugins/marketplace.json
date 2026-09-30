@@ -1,0 +1,20 @@
+{
+  "name": "kwal-agent-payment",
+  "interface": {
+    "displayName": "Kwal Agent Payment"
+  },
+  "plugins": [
+    {
+      "name": "agent-payment",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_USE"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

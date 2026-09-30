@@ -1,0 +1,23 @@
+{
+  "name": "agent-payment",
+  "version": "0.1.0",
+  "description": "Make sandbox purchases with Kwal while keeping control of your wallet and approving each payment.",
+  "author": {
+    "name": "Payward Services"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Kwal Sandbox Payments",
+    "shortDescription": "Make sandbox purchases with Kwal",
+    "longDescription": "Make sandbox purchases with Kwal while keeping control of your wallet and approving each payment.",
+    "developerName": "Payward Services",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Use agent-payment to guide me through a Kwal sandbox purchase."
+    ]
+  }
+}
