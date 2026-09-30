@@ -1,0 +1,7 @@
+interface:
+  display_name: "Kwal Sandbox Payments"
+  short_description: "Make sandbox purchases with Kwal"
+  default_prompt: "Use $agent-payment to guide me through a Kwal sandbox purchase."
+
+policy:
+  allow_implicit_invocation: false

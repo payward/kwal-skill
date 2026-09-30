@@ -1,0 +1,9 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "agent-payment",
+  "version": "0.1.0",
+  "description": "Make sandbox purchases with Kwal while keeping control of your wallet and approving each payment.",
+  "author": {
+    "name": "Payward Services"
+  }
+}
