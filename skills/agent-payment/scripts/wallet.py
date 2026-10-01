@@ -397,9 +397,9 @@ def parser():
     commands = result.add_subparsers(dest="command", required=True)
     commands.add_parser("create", help="Create the wallet, or reuse the saved one")
     commands.add_parser("info", help="Show the address and check that the saved key recovers it")
-    for command in ("balance", "history"):
-        commands.add_parser(command).add_argument("--network", choices=NETWORKS, required=True)
-    commands.add_parser("networks")
+    for command, summary in (("balance", "Read ETH and USDC on a network"), ("history", "Show the transactions sent on a network")):
+        commands.add_parser(command, help=summary).add_argument("--network", choices=NETWORKS, required=True)
+    commands.add_parser("networks", help="Show the network values")
     bridge = commands.add_parser("bridge", help="Deposit Sepolia ETH into the same wallet on Ink Sepolia")
     bridge.add_argument("--request-id", required=True, type=checked_id, help="Reuse this ID for every retry")
     bridge.add_argument("--eth", default="0.02", help="Deposit amount, not target balance; maximum 0.1")
