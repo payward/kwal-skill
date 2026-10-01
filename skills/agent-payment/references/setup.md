@@ -4,13 +4,12 @@ Use Python 3.10 or later on Linux or macOS.
 
 ## Before you start
 
-Confirm these with the user before the first purchase. The agent can create and fund the wallet, or guide the user. See [Owner wallet](wallet-setup.md).
+Confirm these with the user before the first purchase. The agent can create and fund the wallet, or guide the user: see [Owner wallet](wallet-setup.md).
 
-- An owner wallet: an EVM wallet on Ink Sepolia. The service refuses an owner address that another participant already uses, so each participant needs its own address.
-- Ink Sepolia: chain ID `763373`, RPC `https://rpc-gel-sepolia.inkonchain.com`.
+- An owner wallet: an EVM wallet on [Ink Sepolia](wallet-setup.md#network-values). The service refuses an owner address that another participant already uses, so each participant needs its own address.
 - Test ETH for gas and test USDC on Ink Sepolia in that wallet.
 
-The `funding` command prints the chain ID, token address and faucet links. Use its values if they differ from this list. Try its faucet links first. If they fail, follow [Faucets](faucets.md).
+Try the faucet links that the `funding` command prints first. If they fail, follow [Faucets](faucets.md).
 
 Run `python3 scripts/register.py check` from the skill directory after each configuration change. Interpret the result with [Check the setup](../SKILL.md#check-the-setup).
 
