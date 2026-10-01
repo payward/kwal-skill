@@ -24,7 +24,7 @@ FILES = (
     str(SKILL / "SKILL.md"), str(SKILL / "agents/openai.yaml"),
 )
 PATTERNS = (
-    "tests/test_*.py", str(SKILL / "scripts/*.py"),
+    "tests/test_*.py", str(SKILL / "scripts/*.py"), str(SKILL / "scripts/*.lock"),
     str(SKILL / "references/*.md"), str(SKILL / "tests/*.py"),
 )
 
