@@ -3,9 +3,13 @@
 Guide an agent through Kwal sandbox registration, vault and card setup, test
 funding, and purchases that you approve. Sandbox purchases do not ship goods.
 
-Requires Python 3.10 or later on Linux or macOS. The helpers use only the Python
-standard library. You need access to the Kwal sandbox gateway and your own wallet;
-see [setup and prerequisites](skills/agent-payment/references/setup.md).
+Requires Python 3.10 or later on Linux or macOS. The payment helpers use only
+the Python standard library. You need access to the Kwal sandbox gateway; see
+[setup and prerequisites](skills/agent-payment/references/setup.md).
+
+The agent can create and fund a test owner wallet for you, or guide you to fund
+your own wallet. The agent wallet needs [uv](https://docs.astral.sh/uv/). See
+[Owner wallet](skills/agent-payment/references/wallet-setup.md).
 
 ## Install
 
@@ -99,6 +103,12 @@ and runs both packaging and skill fixture tests from the extracted package.
 The tests use loopback HTTP fixtures, not the sandbox gateway. Rust and Git are
 not required. `build` writes a versioned ZIP and its SHA-256 checksum.
 
+The wallet tests need `web3`. Without it, `check` skips them. To run them:
+
+```sh
+uv run --python 3.12 --with web3==7.13.0 python -m unittest discover -s skills/agent-payment/tests -p 'test_wallet.py'
+```
+
 Only the declared source files are packaged. Credentials, bytecode caches,
 and archives are excluded. Keep generated releases outside
 the source directory.
@@ -109,7 +119,8 @@ rejects a mismatch. Update [CHANGELOG.md](CHANGELOG.md) for each release.
 
 ## Service compatibility
 
-Version 0.1.0 packages the existing Kwal sandbox participant v1 helpers. Its
+Version 0.2.0 packages the Kwal sandbox participant v1 helpers and the test
+wallet helper. Its
 fixture suite checks the API response shapes those helpers support. Installation
 and fixture tests do not establish acceptance by a deployed service. Before
 releasing against a changed backend, run the agreed sandbox journey and record
