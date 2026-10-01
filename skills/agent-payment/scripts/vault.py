@@ -23,6 +23,7 @@ from _fields import (
     _without_token,
 )
 from amounts import Amount, _amount
+from cli_support import _command_line
 from errors import ConfigurationError, ServiceError
 from session import _session
 from transport import POLL_ATTEMPTS, POLL_INTERVAL_SECONDS, request_json
@@ -557,9 +558,9 @@ def _check_deployment(setup: Setup, expected: Setup) -> None:
         raise ServiceError("Setup response changed the recorded vault, chain, or deployment transaction.")
 
 
-def _print_setup(setup: Setup) -> None:
+def _print_setup(setup: Setup, *, credentials: str | None = None) -> None:
     _print_setup_fields(setup)
-    _print_setup_state(setup)
+    _print_setup_state(setup, credentials=credentials)
 
 
 def _print_setup_fields(setup: Setup) -> None:
@@ -584,25 +585,26 @@ def _setup_field_lines(setup: Setup) -> Iterator[str]:
         yield f"Deployment transaction: {setup.deployment_tx_id}"
 
 
-def _print_setup_state(setup: Setup) -> None:
+def _print_setup_state(setup: Setup, *, credentials: str | None = None) -> None:
+    funding_command = _command_line("funding", credentials)
     if setup.state == "ready":
         print("Setup: ready for checkout")
-        print("Next: run the funding command to check the test funds: python3 scripts/register.py funding")
+        print(f"Next: run the funding command to check the test funds: {funding_command}")
         return
     print(f"Setup: processing{'' if setup.step is None else f' at {setup.step}'}")
     if setup.card_status == "ACTIVE":
         print(
             "Next: run the funding command to check funds and get any needed "
-            "deposit instructions: python3 scripts/register.py funding."
+            f"deposit instructions: {funding_command}"
             + (
-                " Checkout still needs card enrollment."
+                "\nCheckout still needs card enrollment."
                 if setup.step == "card_enrollment" and setup.enrollment_status != "ACTIVE"
                 else ""
             )
         )
         return
     print(
-        "Next: resume the same setup: python3 scripts/register.py setup"
+        f"Next: resume the same setup: {_command_line('setup', credentials)}"
     )
 
 
@@ -616,13 +618,13 @@ def _command_status(args: argparse.Namespace, now: int) -> int:
         print("Setup: not started")
         print(
             "Next: ask the user for the vault owner address, then run: "
-            "python3 scripts/register.py setup --owner-address <address>"
+            f"{_command_line('setup --owner-address <address>', args.credentials)}"
         )
         return 0
     if setup.state != "needs_operator":
-        _print_setup(setup)
+        _print_setup(setup, credentials=args.credentials)
         if setup.state == "pending":
-            print("To resume a supported step, run: python3 scripts/register.py setup")
+            print(f"To resume a supported step, run: {_command_line('setup', args.credentials)}")
         return 0
     _print_setup_fields(setup)
     print(f"Setup: stopped for operator help at {setup.step or 'an unreported step'}")
@@ -639,11 +641,8 @@ def _command_setup(args: argparse.Namespace, now: int) -> int:
     deadline = time.monotonic() + SETUP_WAIT_SECONDS
 
     # Recovery commands must retain an explicitly selected participant.
-    credential_option = (
-        "" if args.credentials is None else f" --credentials {shlex.quote(args.credentials)}"
-    )
-    setup_command = f"python3 scripts/register.py setup{credential_option}"
-    funding_command = f"python3 scripts/register.py funding{credential_option}"
+    setup_command = _command_line("setup", args.credentials)
+    funding_command = _command_line("funding", args.credentials)
     printed: set[str] = set()
 
     def report_progress(current: Setup) -> None:

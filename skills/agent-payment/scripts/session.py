@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from _fields import _whole_number
-from cli_support import _format_expiry, _report
+from cli_support import _command_line, _format_expiry, _report
 from errors import AgentPaymentError, ConfigurationError, CredentialsError, ServiceError
 from transport import normalize_service_url, request_json, resolve_service_url
 
@@ -460,12 +460,12 @@ def _command_check(args: argparse.Namespace, now: int) -> int:
     # Every problem is reported in one run, because a caller that fixes one
     # value at a time needs a second run to see the next one.
     for problem in problems:
-        _report(problem)
+        _report(problem, credentials=args.credentials)
     if problems:
         return 1
 
     print("Local configuration is usable. The service was not called.")
-    print("Next: read the vault and card state with: python3 scripts/register.py status")
+    print(f"Next: read the vault and card state with: {_command_line('status', args.credentials)}")
     return 0
 
 

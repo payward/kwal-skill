@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import shlex
 import sys
 
 from amounts import Amount
@@ -28,7 +29,7 @@ _ACTIONS: tuple[tuple[tuple[str, ...], str], ...] = (
     (
         ("No credentials at",),
         "Ask the user to approve a registration, then run: "
-        "python3 scripts/register.py register",
+        "{register}",
     ),
     (
         ("Credentials already exist at", "Credentials replacement"),
@@ -75,7 +76,7 @@ _ACTIONS: tuple[tuple[tuple[str, ...], str], ...] = (
     (
         ("Owner address", "Setup has not started"),
         "Ask the user for the vault owner address, then run: "
-        "python3 scripts/register.py setup --owner-address <address>",
+        "{setup}",
     ),
     (
         ("Setup already uses",),
@@ -95,7 +96,7 @@ _ACTIONS: tuple[tuple[tuple[str, ...], str], ...] = (
         ),
         "Report the payment record as unusable. Do not submit a checkout again. "
         "Ask the user for the last payment id, then run: "
-        "python3 scripts/register.py payment <payment-id>",
+        "{payment}",
     ),
     (
         (
@@ -120,7 +121,7 @@ _ACTIONS: tuple[tuple[tuple[str, ...], str], ...] = (
 # keeps its own rule: any failed registration may have created a participant.
 _SERVICE_ERROR_ACTIONS: dict[str, str] = {
     "ParticipantUnavailable": (
-        "Read the setup state with: python3 scripts/register.py status. If it "
+        "Read the setup state with: {status}. If it "
         "reports an operator stop, report the step and ask the operator to resolve "
         "it for this participant; do not register again. Otherwise follow the "
         "retry limit in references/debug.md#retries."
@@ -131,8 +132,8 @@ _SERVICE_ERROR_ACTIONS: dict[str, str] = {
         "is not found."
     ),
     "ParticipantUnauthenticated": (
-        "The service did not accept the saved session. Run: python3 scripts/register.py "
-        "check. Preserve the credentials and contact the operator; do not register "
+        "The service did not accept the saved session. Run: {check}. "
+        "Preserve the credentials and contact the operator; do not register "
         "again to recover this participant."
     ),
     "ParticipantBadRequest": (
@@ -151,13 +152,13 @@ _SERVICE_ERROR_ACTIONS: dict[str, str] = {
 _SETUP_BAD_REQUEST_ACTION = (
     "The service refused the owner address. Each participant needs its own owner "
     "address; an address used by another participant is refused. Read the state "
-    "with: python3 scripts/register.py status. If it reports no owner, ask the "
+    "with: {status}. If it reports no owner, ask the "
     "user for an owner address that no other participant uses and run setup "
     "again. If it reports an owner, contact the operator; do not register again."
 )
 
 _SHIPPING_BAD_REQUEST_ACTION = (
-    "Read the quote with: python3 scripts/register.py quote-check <quote-id>. "
+    "Read the quote with: {quote_check}. "
     "If it has no attached payment, is unexpired and your option is already "
     "selected, use that quote and total. Otherwise choose an available option, "
     "or follow references/quotes.md "
@@ -174,7 +175,13 @@ _SERVICE_ERROR = re.compile(r"service_error=(\w+)")
 _GATEWAY_FAILURE = re.compile(r"^(GET|POST) \S+ (failed with HTTP 50[234]\.|did not complete\.)")
 
 
-def _action_for(message: str) -> str:
+def _command_line(command: str, credentials: str | None = None) -> str:
+    """A copied next step must keep an explicitly selected participant."""
+    option = "" if credentials is None else f" --credentials {shlex.quote(credentials)}"
+    return f"python3 scripts/register.py {command}{option}"
+
+
+def _action_template_for(message: str) -> str:
     if not message.startswith("POST /kwal/participant/v1/register"):
         tag = _SERVICE_ERROR.search(message)
         if (
@@ -199,9 +206,22 @@ def _action_for(message: str) -> str:
     return "Report the error line to the user and stop."
 
 
-def _report(error: str, *, next_step: str | None = None) -> None:
+def _action_for(message: str, *, credentials: str | None = None) -> str:
+    return _action_template_for(message).format(
+        register=_command_line("register", credentials),
+        setup=_command_line("setup --owner-address <address>", credentials),
+        payment=_command_line("payment <payment-id>", credentials),
+        status=_command_line("status", credentials),
+        check=_command_line("check", credentials),
+        quote_check=_command_line("quote-check <quote-id>", credentials),
+    )
+
+
+def _report(
+    error: str, *, next_step: str | None = None, credentials: str | None = None,
+) -> None:
     print(f"error: {error}", file=sys.stderr)
-    action = _action_for(error)
+    action = _action_for(error, credentials=credentials)
     if next_step is not None:
         action += f" {next_step}"
     print(f"action: {action}", file=sys.stderr)
