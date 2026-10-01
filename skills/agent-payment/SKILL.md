@@ -1,6 +1,6 @@
 ---
 name: agent-payment
-description: Make sandbox purchases with Kwal while you keep control of your wallet and approve each payment.
+description: Make sandbox purchases with Kwal. The agent can create and fund a test owner wallet, or guide you to fund your own. You approve each payment.
 disable-model-invocation: true
 ---
 
@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 Run commands from the directory that contains this `SKILL.md`.
 
-Before a first purchase, confirm the [prerequisites](references/setup.md#before-you-start) with the user.
+Before a first purchase, confirm the [prerequisites](references/setup.md#before-you-start) with the user. If the user has no funded owner wallet, offer to create and fund one, or to guide the user: see [Owner wallet](references/wallet-setup.md).
 
 Select the operation that matches the request:
 
@@ -16,6 +16,7 @@ Select the operation that matches the request:
 - Check or configure local settings: [check the setup](#check-the-setup).
 - Read the vault and card state without changing it: [read the status](#read-the-status).
 - Create a participant: [register a participant](#register-a-participant).
+- Create, fund, or recover the owner wallet: [Owner wallet](references/wallet-setup.md).
 - Create or check the vault and the sandbox card: [Vault and card](references/vault-and-card.md).
 - Show test-funding instructions, or check whether a payment can be attempted: [Funding and readiness](references/funding.md).
 - Find an item and resolve the variant to buy: [Product selection](references/products.md).
@@ -29,11 +30,12 @@ Select the operation that matches the request:
 Resume an existing payment with [Checkout and payment status](references/checkout.md). For a new purchase:
 
 1. Use a valid saved session, or [register a participant](#register-a-participant) when authorized.
-2. Create or check the [vault and card](references/vault-and-card.md) for that session. Let `setup` continue through resumable processing for up to five minutes without asking the user to continue. Follow the command's next step on readiness, an operator stop, or the deadline.
-3. [Fund the vault](references/funding.md) with test USDC from the owner wallet.
-4. [Select a product](references/products.md) and resolve a purchasable variant.
-5. [Prepare a quote](references/quotes.md), including required shipping choices and funding readiness for the final total. If the desired shipping option is already selected, keep it; see [Shipping selection](references/quotes.md#shipping-selection).
-6. [Review, submit, and observe checkout](references/checkout.md) under the user's purchase authorization. The user approves the payment on the hosted page.
+2. Get the owner address and its test funds: [Owner wallet](references/wallet-setup.md).
+3. Create or check the [vault and card](references/vault-and-card.md) for that session. Let `setup` continue through resumable processing for up to five minutes without asking the user to continue. Follow the command's next step on readiness, an operator stop, or the deadline.
+4. [Fund the vault](references/funding.md) with test USDC from the owner wallet. In agent mode, the agent sends the USDC; see [Owner wallet](references/wallet-setup.md#procedure).
+5. [Select a product](references/products.md) and resolve a purchasable variant.
+6. [Prepare a quote](references/quotes.md), including required shipping choices and funding readiness for the final total. If the desired shipping option is already selected, keep it; see [Shipping selection](references/quotes.md#shipping-selection).
+7. [Review, submit, and observe checkout](references/checkout.md) under the user's purchase authorization. The user approves the payment on the hosted page.
 
 In the sandbox, the payment is a simulated card spend against your vault: Kwal approves it from your vault funds, and no shop ships anything. See [Sandbox payments](references/checkout.md#sandbox-payments-are-simulated-card-spends).
 
