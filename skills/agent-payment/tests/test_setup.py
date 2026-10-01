@@ -351,7 +351,9 @@ class SetupCommandTests(CommandTests):
             code, _, err = self.run_setup(service.url, "--owner-address", OWNER)
             self.assertEqual(service.calls, [("GET", pws_client.STATUS_PATH)])
         self.assertEqual(code, 1)
-        self.assertIn("owner address that was not requested", err)
+        self.assertIn(f"Setup already uses owner address {VAULT}", err)
+        self.assertIn("Use the saved owner address", err)
+        self.assertNotIn("API contract", err)
 
     def test_initialize_response_must_match_the_requested_owner_when_reported(self) -> None:
         with StubService(responses=(NOT_STARTED, READY | {"ownerAddress": VAULT})) as service:
@@ -522,7 +524,9 @@ class IssuerSetupTests(CommandTests):
             code, _, err = self.run_setup(service.url, "--owner-address", f"0x{'ef' * 20}")
             self.assertEqual(service.calls, [("GET", pws_client.STATUS_PATH)])
         self.assertEqual(code, 1)
-        self.assertIn("owner address that was not requested", err)
+        self.assertIn(f"Setup already uses owner address {OWNER}", err)
+        self.assertIn("Use the saved owner address", err)
+        self.assertNotIn("API contract", err)
 
 
 
@@ -690,7 +694,9 @@ class VaultReconciliationTests(CommandTests):
             )
             self.assertEqual(service.calls, [("GET", pws_client.STATUS_PATH)])
         self.assertEqual(code, 1)
-        self.assertIn("owner address that was not requested", err)
+        self.assertIn(f"Setup already uses owner address {OWNER}", err)
+        self.assertIn("Use the saved owner address", err)
+        self.assertNotIn("API contract", err)
 
     def test_reconciliation_refuses_changed_or_missing_binding_in_response_or_poll(self):
         for field, value in (
