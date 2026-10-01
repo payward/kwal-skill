@@ -22,13 +22,11 @@ The vault is on Ink Sepolia. Ethereum Sepolia is only a source of test ETH. The 
 
 ## Guided mode
 
-1. The user creates or selects an EVM wallet, for example MetaMask. The service refuses an owner address that another participant already uses, so each participant needs its own address.
+1. The user creates or selects an EVM wallet, for example MetaMask.
 2. The user adds Ink Sepolia with the values above, and imports the Ink Sepolia Circle USDC contract.
 3. The user gets test ETH on Ink Sepolia and test USDC on Ink Sepolia. Follow [Faucets](faucets.md).
-4. The user gives the public address. Use it as `--owner-address` for [setup](vault-and-card.md).
+4. The user gives only the public address. Use it as `--owner-address` for [setup](vault-and-card.md).
 5. To fund the vault, the user sends USDC on Ink Sepolia to the vault address that the `funding` command prints. Follow [Fund the vault](vault-and-funds.md#fund-the-vault).
-
-Never ask for the private key or recovery phrase.
 
 ## Agent mode
 
@@ -46,21 +44,11 @@ Run each command from the skill directory:
 uv run --locked --script scripts/wallet.py <command>
 ```
 
-The script needs Python 3.11 or later. `uv` gets a matching Python and the locked dependencies. The script refuses a mainnet RPC and checks the chain ID and the USDC contract before each network operation.
-
-| Command | Use |
-|---|---|
-| `create` | Create the wallet, or reuse the saved wallet |
-| `info` | Show the address and check that the saved key recovers it |
-| `balance --network ink` | Read ETH and USDC on a network (`ink` or `ethereum`) |
-| `bridge --request-id <id> --eth 0.02` | Deposit Sepolia ETH into the same address on Ink Sepolia (maximum 0.1) |
-| `transfer --to <vault> --usdc <amount> --request-id <id>` | Send USDC on Ink Sepolia to the vault (maximum 100) |
-| `history --network ink` | Show the transactions the script sent on a network |
-| `networks` | Show the network values |
+`--help` lists the commands, their options, and their limits.
 
 ### Procedure
 
-1. Run `create`, then `info`. Continue only when `recovery_verified` is `true`. Give the user the address and the key file path. Never print, copy, or send the key.
+1. Run `create`, then `info`. Continue only when `recovery_verified` is `true`. Give the user the address and the key file path. The key stays in its file.
 2. Use the address as `--owner-address` for [setup](vault-and-card.md).
 3. Run `balance --network ink`. One USDC transfer needs much less than 0.001 ETH for gas.
 4. If Ink Sepolia has no ETH, get Sepolia ETH and bridge it. Follow [ETH for gas](faucets.md#eth-for-gas).
@@ -83,7 +71,9 @@ Each command prints JSON. Read the `state` field.
 - `bridge_pending`: the Sepolia deposit is confirmed. Wait 60 seconds, then run the same command again. Allow up to 15 minutes.
 - `bridged`: the ETH is on Ink Sepolia. Run `balance --network ink`.
 - `funds_needed`: the wallet needs more ETH or USDC on the reported network. Follow [Faucets](faucets.md), then run the same command again.
-- `unresolved`: the script cannot find the broadcast result. Check the hash in the explorer and the RPC. Keep the transaction journal. Do not send a replacement transfer.
+- `unresolved`: the script cannot find the broadcast result. Check the hash in the explorer and the RPC. Keep the transaction journal. Retry only with the same request ID.
+
+If the state stays `pending` after ten runs, or `bridge_pending` after 15 minutes, give the user the hash and stop.
 
 If a command fails, it prints an `error` message and exits with status 1. Correct the reported cause before you try again. A reverted transfer needs receipt inspection and a decision from the user.
 
