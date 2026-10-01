@@ -44,7 +44,7 @@ class PackageTests(unittest.TestCase):
     def test_manifest_version_mismatch_is_rejected(self):
         path = self.root / ".claude-plugin/plugin.json"
         manifest = json.loads(path.read_text())
-        manifest["version"] = "0.2.0"
+        manifest["version"] = "9.9.9"
         path.write_text(json.dumps(manifest))
         with self.assertRaisesRegex(ValueError, "version mismatch"):
             package.build(self.root, self.directory / "output")

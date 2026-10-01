@@ -1,7 +1,7 @@
 {
   "name": "agent-payment",
-  "version": "0.1.0",
-  "description": "Make sandbox purchases with Kwal while keeping control of your wallet and approving each payment.",
+  "version": "0.2.0",
+  "description": "Make sandbox purchases with Kwal. The agent can create and fund a test wallet, or guide you to fund your own. You approve each payment.",
   "author": {
     "name": "Payward Services"
   }
