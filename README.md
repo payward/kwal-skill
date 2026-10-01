@@ -9,9 +9,20 @@ see [setup and prerequisites](skills/agent-payment/references/setup.md).
 
 ## Install
 
-This repository is a complete plugin and marketplace.
+This repository supports skill installation and includes a complete plugin and
+marketplace.
 
-### Claude Code
+### Skills CLI (Claude Code and Codex)
+
+With Node.js and npm installed, run from your project directory:
+
+```sh
+npx skills add payward/kwal-skill --skill agent-payment --agent claude-code codex
+```
+
+Start a new session and invoke the `agent-payment` skill explicitly.
+
+### Claude Code plugin
 
 Run in your terminal:
 
@@ -23,7 +34,7 @@ claude plugin install agent-payment@kwal-agent-payment
 Start a new session and invoke `/agent-payment:agent-payment`.
 For a one-session trial, use `claude --plugin-dir /absolute/path/to/kwal-skill`.
 
-### Codex
+### Codex plugin
 
 Run in your terminal:
 
