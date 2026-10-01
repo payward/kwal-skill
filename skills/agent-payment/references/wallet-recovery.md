@@ -6,7 +6,7 @@ The wallet directory is `$XDG_CONFIG_HOME/pws/agent-payment/wallet/`, or `~/.con
 
 ## Import into MetaMask
 
-The user does these steps on the host that has the key. Never print, copy, or send the key for the user.
+The user does these steps on the host that has the key. The user copies the key; the agent gives only the file path.
 
 1. In MetaMask, open the account menu and select the option to import an account with a private key.
 2. Open `private-key.txt` locally. Copy its contents into MetaMask.
@@ -21,5 +21,3 @@ This is a private-key import. It does not give a recovery phrase. The import doe
 1. Copy the complete wallet directory to private storage. Include the transaction journals.
 2. To restore, put the directory back at the same path. Keep mode 700 on directories and mode 600 on files.
 3. Run `uv run --locked --script scripts/wallet.py info`. Continue only when `recovery_verified` is `true`.
-
-Keep the key and the journals out of repositories, chats, and shared documents. Use this wallet only for test assets.
