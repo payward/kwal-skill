@@ -670,7 +670,12 @@ def _command_setup(args: argparse.Namespace, now: int) -> int:
     )
 
     setup = read_setup(credentials.service_url, credentials.token, deadline=deadline)
-    _check_owner(setup, owner_address)
+    if (
+        owner_address is not None
+        and setup.owner_address is not None
+        and setup.owner_address.lower() != owner_address.lower()
+    ):
+        raise ConfigurationError(f"Setup already uses owner address {setup.owner_address}.")
     expected_deployment = None
     if args.reconcile_vault:
         if (
