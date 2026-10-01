@@ -6,7 +6,7 @@
   "plugins": [
     {
       "name": "agent-payment",
-      "description": "Make sandbox purchases with Kwal while keeping control of your wallet and approving each payment.",
+      "description": "Make sandbox purchases with Kwal. The agent can create and fund a test wallet, or guide you to fund your own. You approve each payment.",
       "source": "./"
     }
   ],

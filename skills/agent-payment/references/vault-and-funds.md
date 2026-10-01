@@ -4,15 +4,15 @@ Use this reference to explain custody, a funding shortfall, or an operator-coord
 
 ## Custody
 
-The user controls the owner wallet and keeps its private key. The skill stores a service session token. That token does not authorize an owner withdrawal. The user signs funding transactions and withdrawal requests in their wallet. Card details and provider challenges stay on the hosted payment page.
+In guided mode, the user controls the owner wallet and keeps its private key. The user signs funding transactions and withdrawal requests in their wallet. In agent mode, the agent keeps a test wallet key on the host and signs the funding transfer. The user can import that key into their own wallet; see [Wallet recovery](wallet-recovery.md). The skill also stores a service session token. That token does not authorize an owner withdrawal. Card details and provider challenges stay on the hosted payment page.
 
 ## Fund the vault
 
 Use the vault address and chain from the service response. A token symbol alone does not identify a token contract. Use the returned chain ID, token address, decimals and faucet links shown by the funding command. If the response lacks the vault destination, token address, chain, or transfer instructions, ask the service operator for the missing details before giving transaction instructions.
 
-Give the user the reported shortfall and the verified funding instructions. The user needs the required token and gas on that chain. The current Kwal vault is funded by calling `transfer(vault_address, amount)` on the configured ERC-20 token contract. It has no deposit method and does not pull token allowances, so no token approval is needed. This skill has no faucet or wallet transaction command.
+Give the user the reported shortfall and the verified funding instructions. The user needs the required token and gas on that chain. The current Kwal vault is funded by calling `transfer(vault_address, amount)` on the configured ERC-20 token contract. It has no deposit method and does not pull token allowances, so no token approval is needed. To get test funds, follow [Faucets](faucets.md). In agent mode, send the transfer with the wallet command; see [Owner wallet](wallet-setup.md#procedure).
 
-After the user reports a deposit, follow [funding.md](funding.md) to observe the same vault. A deposit receipt alone does not prove payment readiness or owner control.
+After the deposit, follow [funding.md](funding.md) to observe the same vault. A deposit receipt alone does not prove payment readiness or owner control.
 
 ## Card-spendable and withdrawable funds
 
