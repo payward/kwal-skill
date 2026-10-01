@@ -1,13 +1,13 @@
 # Vault and card
 
-Setup initializes or resumes the vault and sandbox card for the saved participant. Use the owner address supplied by the user, or ask for it if missing. The user keeps the owner key and signs each funding transaction.
+Setup initializes or resumes the vault and sandbox card for the saved participant. Use the owner address supplied by the user, or the agent wallet address. If neither exists, follow [Owner wallet](wallet-setup.md).
 
 ```bash
 python3 scripts/register.py setup --owner-address "<owner-address>"
 python3 scripts/register.py setup
 ```
 
-Replace `<owner-address>` with the address from the user. The command refuses the placeholder. The service refuses an owner address that another participant already uses, so a second participant needs a new wallet address. Show the address to the user before the first setup: checking its format does not prove that the user controls its key. A deposit is not proof of owner control either.
+Replace `<owner-address>` with the address from the user or from the agent wallet `info` command. The command refuses the placeholder. The service refuses an owner address that another participant already uses, so a second participant needs a new wallet address. Show the address to the user before the first setup: checking its format does not prove control of its key. A deposit is not proof of owner control either.
 
 Give `--owner-address` for the first run. Omit it to check or resume the same setup. To read the state without resuming a step, run `python3 scripts/register.py status`. The service keeps the first owner address. If the response includes `ownerAddress`, the helper displays it and rejects a supplied address that differs, without starting initialization. It also rejects a changed or missing owner during polling after the service has reported one. Older responses without owner evidence remain readable, but the helper marks the owner match unverified. Never treat an absent owner field as confirmation of control or permission to replace a vault.
 
@@ -30,5 +30,5 @@ If the command fails or times out, follow [Debug](debug.md). Read status before 
 
 ## Errors
 
-- `Setup has not started`: ask the user for the vault owner address. See the setup steps above.
+- `Setup has not started`: ask the user for the vault owner address, or use the agent wallet address from [Owner wallet](wallet-setup.md). See the setup steps above.
 - `Setup response ...`: the response does not match the participant API contract, or owner evidence conflicts with the request. Report the error and ask the service operator to verify the same setup.
