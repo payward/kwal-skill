@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 Run commands from the directory that contains this `SKILL.md`.
 
-Before a first purchase, confirm the [prerequisites](references/setup.md#before-you-start) with the user. If the user has no funded owner wallet, offer to create and fund one, or to guide the user: see [Owner wallet](references/wallet-setup.md).
+Before a first purchase, confirm the [prerequisites](references/setup.md#before-you-start) with the user.
 
 Select the operation that matches the request:
 
@@ -32,7 +32,7 @@ Resume an existing payment with [Checkout and payment status](references/checkou
 1. Use a valid saved session, or [register a participant](#register-a-participant) when authorized.
 2. Get the owner address and its test funds: [Owner wallet](references/wallet-setup.md).
 3. Create or check the [vault and card](references/vault-and-card.md) for that session. Let `setup` continue through resumable processing for up to five minutes without asking the user to continue. Follow the command's next step on readiness, an operator stop, or the deadline.
-4. [Fund the vault](references/funding.md) with test USDC from the owner wallet. In agent mode, the agent sends the USDC; see [Owner wallet](references/wallet-setup.md#procedure).
+4. [Fund the vault](references/funding.md) with test USDC from the owner wallet. In agent mode, send it with the [wallet command](references/wallet-setup.md#procedure).
 5. [Select a product](references/products.md) and resolve a purchasable variant.
 6. [Prepare a quote](references/quotes.md), including required shipping choices and funding readiness for the final total. If the desired shipping option is already selected, keep it; see [Shipping selection](references/quotes.md#shipping-selection).
 7. [Review, submit, and observe checkout](references/checkout.md) under the user's purchase authorization. The user approves the payment on the hosted page.
