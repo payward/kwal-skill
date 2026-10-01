@@ -4,13 +4,12 @@
 from __future__ import annotations
 
 import argparse
-import shlex
 import sys
 import time
 
 from catalog import _command_product, _command_products, _command_variant
 from checkout import _command_checkout, _command_payment
-from cli_support import _report
+from cli_support import _command_line, _report
 from errors import AgentPaymentError, ConfigurationError, ServiceError
 from quotes import (
     ADDRESS_FIELDS,
@@ -217,20 +216,18 @@ def main(argv: list[str] | None = None) -> int:
         "payment": _command_payment,
         "call": _command_call,
     }
+    args = argparse.Namespace(command=None, credentials=None)
     try:
         args = _build_parser().parse_args(argv)
         return handlers[args.command](args, now)
     except AgentPaymentError as error:
         next_step = None
         if isinstance(error, ServiceError) and args.command == "setup":
-            credential_option = (
-                "" if args.credentials is None else f" --credentials {shlex.quote(args.credentials)}"
-            )
             next_step = (
                 "Before any retry, read the same saved setup without resuming: "
-                f"python3 scripts/register.py status{credential_option}"
+                f"{_command_line('status', args.credentials)}"
             )
-        _report(str(error), next_step=next_step)
+        _report(str(error), next_step=next_step, credentials=args.credentials)
         return 1
 
 
