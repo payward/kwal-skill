@@ -183,14 +183,32 @@ _UNKNOWN_CHECKOUT_ACTION = (
     "A payment may exist. Read the payment id printed above with: python3 "
     'scripts/register.py payment "<payment-id>". If it shows a payment state, '
     "follow that output and do not submit a second checkout. If it reports "
-    "ParticipantNotFound, the service saved nothing: run the same checkout again "
-    "under the retry limit in references/debug.md#retries. It reuses the "
-    "recorded payment id."
+    "ParticipantNotFound, the service saved nothing. Wait, then run the same "
+    "command again. To run the same checkout again, follow the retry limit in "
+    "references/debug.md#retries. It reuses the recorded payment id."
+)
+
+
+# On a quote or a payment the service waits on the provider, so an unavailable
+# answer there is a slow provider, not a setup problem. A quote retry gets a
+# new provider key, so the same command can succeed.
+_SLOW_PROVIDER = re.compile(r"^(GET|POST) /kwal/participant/v1/(quotes|payments)[/? ]")
+_SLOW_PROVIDER_ACTION = "The provider did not answer in time."
+_SLOW_PROVIDER_RETRY_ACTION = (
+    f"{_SLOW_PROVIDER_ACTION} Wait, then run the same command again. Follow the "
+    "retry limit in references/debug.md#retries."
 )
 
 
 def unknown_checkout_outcome(message: str) -> bool:
     return bool(_UNKNOWN_CHECKOUT.match(message))
+
+
+def _slow_provider(message: str) -> bool:
+    tag = _SERVICE_ERROR.search(message)
+    return bool(
+        tag and tag.group(1) == "ParticipantUnavailable" and _SLOW_PROVIDER.match(message)
+    )
 
 
 def _command_line(command: str, credentials: str | None = None) -> str:
@@ -201,7 +219,11 @@ def _command_line(command: str, credentials: str | None = None) -> str:
 
 def _action_template_for(message: str) -> str:
     if unknown_checkout_outcome(message):
+        if _slow_provider(message):
+            return f"{_SLOW_PROVIDER_ACTION} {_UNKNOWN_CHECKOUT_ACTION}"
         return _UNKNOWN_CHECKOUT_ACTION
+    if _slow_provider(message):
+        return _SLOW_PROVIDER_RETRY_ACTION
     if not message.startswith("POST /kwal/participant/v1/register"):
         tag = _SERVICE_ERROR.search(message)
         if (

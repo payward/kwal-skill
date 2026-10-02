@@ -33,6 +33,38 @@ class ServiceErrorActionTests(unittest.TestCase):
         self.assertIn("operator", action)
         self.assertNotIn("API contract", action)
 
+    def test_a_slow_provider_on_a_quote_or_payment_asks_for_the_same_command(self) -> None:
+        for method, path in (
+            ("POST", "/kwal/participant/v1/quotes"),
+            ("GET", "/kwal/participant/v1/quotes/qt_1"),
+            ("POST", "/kwal/participant/v1/quotes/qt_1/shipping"),
+            ("GET", "/kwal/participant/v1/payments/pay_1"),
+        ):
+            with self.subTest(route=f"{method} {path}"):
+                action = cli_support._action_for(
+                    failure(method, path, 503, "ParticipantUnavailable")
+                )
+                self.assertTrue(
+                    action.startswith(
+                        "The provider did not answer in time. Wait, then run the same "
+                        "command again."
+                    ),
+                    action,
+                )
+                self.assertNotIn("register.py status", action)
+
+    def test_a_slow_provider_on_a_checkout_reads_the_payment_first(self) -> None:
+        action = cli_support._action_for(
+            failure("POST", "/kwal/participant/v1/payments", 503, "ParticipantUnavailable")
+        )
+        self.assertTrue(action.startswith("The provider did not answer in time."), action)
+        self.assertIn("A payment may exist", action)
+        self.assertIn(
+            "ParticipantNotFound, the service saved nothing. Wait, then run the same "
+            "command again.",
+            action,
+        )
+
     def test_an_unknown_id_asks_for_the_printed_id(self) -> None:
         action = cli_support._action_for(
             failure("GET", "/kwal/participant/v1/products/prd_x", 404, "ParticipantNotFound")
