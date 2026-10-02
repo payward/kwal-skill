@@ -11,7 +11,7 @@ Replace placeholders before execution. Run `quote-check` first. Confirm the item
 
 `checkout` submits immediately. Its printed quote review is not an approval pause. It refuses an expired quote or a quote with a missing shipping choice. For those states, return to [Quotes](quotes.md) before submission.
 
-The command saves the payment id and quote id before it sends the request. A repeated `checkout` for the same quote uses the saved payment id. If the response is lost, repeat that command under the [retry limit](debug.md#retries), with the same credentials and attempt record. `Checkout: resuming the recorded attempt` confirms reuse of the saved id.
+The command saves the payment id and quote id before it sends the request. A repeated `checkout` for the same quote uses the saved payment id. If the response is lost, read the payment first, as [Errors](#errors) tells you. `Checkout: resuming the recorded attempt` confirms reuse of the saved id.
 
 Payment history belongs to the credentials file: `alice.json` uses
 `alice.json.payments.json` beside it. Keep both files together when moving a
@@ -45,7 +45,7 @@ In the sandbox, `checkout` does not buy from a shop. No shop receives an order a
 | Output | Meaning |
 | --- | --- |
 | `Step: card_authorization` with `payment accepted; waiting for the payment worker` | Kwal saved the payment. The payment worker did not send it yet. Read the same payment again later. Do not start a new checkout. |
-| `Step: card_authorization` with `another payment is using your card` | Another payment holds your card. Nothing was saved for this payment. Wait until the other payment finishes, then run the same `checkout` again. |
+| `another payment holds your card` on `checkout` | Nothing was saved for this payment. Wait until the holding payment finishes. When the output names it, read it with `payment "<payment-id>"` until it is completed or declined. Then run the same `checkout` again. It reuses the saved payment id. |
 | `Step: card_authorization` with `Held on the vault` | Approved. The amount is held on your vault. Read the same payment again to see it settle. |
 | `Step: card_clearing` with `Payment: processing` | The spend is settling. Read the same payment again. |
 | `Payment: processing` with `ask the operator` in the reason | The results conflict, the vault collection is blocked, or the clearing is above the quote total. Report the reason. Ask the operator to resolve the same payment. Do not start a new checkout. |
@@ -59,5 +59,6 @@ In the sandbox, `checkout` does not buy from a shop. No shop receives an order a
 
 ## Errors
 
+- `checkout` fails with HTTP 502, 503 or 504, or does not complete: a payment may exist. Read the printed `Payment id` with `payment "<payment-id>"`. If it shows a payment state, follow that state and do not submit a second checkout. If it reports `ParticipantNotFound`, nothing was saved: run the same `checkout` again under the [retry limit](debug.md#retries).
 - An unreadable or unwritable payment record: report it and ask for the last payment id. Observe that payment before another submission.
 - An invalid payment response: follow [Debug](debug.md).

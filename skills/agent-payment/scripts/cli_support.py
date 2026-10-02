@@ -174,6 +174,24 @@ _RETRY_ACTION = (
 _SERVICE_ERROR = re.compile(r"service_error=(\w+)")
 _GATEWAY_FAILURE = re.compile(r"^(GET|POST) \S+ (failed with HTTP 50[234]\.|did not complete\.)")
 
+# The service can save a checkout and then fail to answer, so a failed answer
+# does not prove that nothing was saved.
+_UNKNOWN_CHECKOUT = re.compile(
+    r"^POST /kwal/participant/v1/payments (failed with HTTP 50[234]\.|did not complete\.)"
+)
+_UNKNOWN_CHECKOUT_ACTION = (
+    "A payment may exist. Read the payment id printed above with: python3 "
+    'scripts/register.py payment "<payment-id>". If it shows a payment state, '
+    "follow that output and do not submit a second checkout. If it reports "
+    "ParticipantNotFound, the service saved nothing: run the same checkout again "
+    "under the retry limit in references/debug.md#retries. It reuses the "
+    "recorded payment id."
+)
+
+
+def unknown_checkout_outcome(message: str) -> bool:
+    return bool(_UNKNOWN_CHECKOUT.match(message))
+
 
 def _command_line(command: str, credentials: str | None = None) -> str:
     """A copied next step must keep an explicitly selected participant."""
@@ -182,6 +200,8 @@ def _command_line(command: str, credentials: str | None = None) -> str:
 
 
 def _action_template_for(message: str) -> str:
+    if unknown_checkout_outcome(message):
+        return _UNKNOWN_CHECKOUT_ACTION
     if not message.startswith("POST /kwal/participant/v1/register"):
         tag = _SERVICE_ERROR.search(message)
         if (

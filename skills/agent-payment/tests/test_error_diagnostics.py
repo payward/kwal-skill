@@ -65,6 +65,30 @@ class ErrorDiagnosticsTests(unittest.TestCase):
         self.assertIn(TAG, message)
         self.assertNotIn("private", message)
 
+    def test_a_busy_card_names_only_a_valid_holding_payment(self):
+        busy = problem("ParticipantCardBusy")
+        message = self.request_error(
+            json.dumps(busy | {"data": {"holdingPaymentId": "pay_0"}}).encode()
+        )
+        self.assertIn("service_error=ParticipantCardBusy; holding_payment=pay_0", message)
+        for holder in ("", "..", "pay 0", "pay_0\nprivate", "p" * 129, ["pay_0"], 7):
+            with self.subTest(holder=holder):
+                message = self.request_error(
+                    json.dumps(busy | {"data": {"holdingPaymentId": holder}}).encode()
+                )
+                self.assertIn("service_error=ParticipantCardBusy", message)
+                self.assertNotIn("holding_payment", message)
+        message = self.request_error(
+            json.dumps(busy | {"data": {"holdingPaymentId": TRACE}}).encode(), token=TRACE
+        )
+        self.assertNotIn("holding_payment", message)
+
+    def test_only_a_busy_card_names_a_holding_payment(self):
+        message = self.request_error(
+            json.dumps(problem() | {"data": {"holdingPaymentId": "pay_0"}}).encode()
+        )
+        self.assertNotIn("holding_payment", message)
+
     def test_malformed_oversized_and_deep_bodies_keep_http_status(self):
         for raw in (b"", b"<html>private</html>", b"\xff", b"[" * 2000, b" " * 65536 + b"{}"):
             with self.subTest(length=len(raw)):

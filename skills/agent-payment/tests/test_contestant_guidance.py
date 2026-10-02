@@ -79,6 +79,20 @@ class ServiceErrorActionTests(unittest.TestCase):
                 )
                 self.assertIn("references/debug.md#retries", action)
 
+    def test_an_unanswered_checkout_reads_the_payment_before_a_retry(self) -> None:
+        for message in (
+            failure("POST", "/kwal/participant/v1/payments", 503, "ParticipantUnavailable"),
+            failure("POST", "/kwal/participant/v1/payments", 502),
+            "POST /kwal/participant/v1/payments did not complete.",
+        ):
+            with self.subTest(message=message):
+                action = cli_support._action_for(message)
+                self.assertIn("A payment may exist", action)
+                self.assertIn('python3 scripts/register.py payment "<payment-id>"', action)
+                self.assertIn("ParticipantNotFound", action)
+                self.assertIn("references/debug.md#retries", action)
+                self.assertNotIn("register.py status", action)
+
     def test_an_interrupted_request_follows_the_retry_limit(self) -> None:
         action = cli_support._action_for("GET /kwal/participant/v1/status did not complete.")
         self.assertIn("references/debug.md#retries", action)

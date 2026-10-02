@@ -7,6 +7,7 @@ import dataclasses
 import fcntl
 import json
 import os
+import re
 import time
 import urllib.error
 import urllib.parse
@@ -24,7 +25,7 @@ from _fields import (
     normalize_identifier,
 )
 from amounts import Amount, _amount
-from cli_support import _format_expiry
+from cli_support import _format_expiry, unknown_checkout_outcome
 from errors import ConfigurationError, ServiceError
 from quotes import _print_quote, _quote_refusal, read_quote
 from session import _OWNER_ONLY, _session, resolve_credentials_path
@@ -54,6 +55,10 @@ _QUOTE_ALREADY_PAID = (
 # A checkout the vault cannot cover is refused before anything is saved or
 # sent, with this typed service error.
 _FUNDING_REFUSAL = "service_error=ParticipantFundingRequest"
+
+# One card carries one sandbox payment at a time. The service saves nothing for
+# a busy card, and it names the holding payment only when it is the caller's.
+_CARD_BUSY = re.compile(r"service_error=ParticipantCardBusy(?:; holding_payment=([^;)]+))?")
 
 
 def _field_link(body: dict[str, Any], key: str, *, subject: str) -> str | None:
@@ -464,6 +469,13 @@ def _command_checkout(args: argparse.Namespace, now: int) -> int:
             credentials.service_url, credentials.token, attempt.payment_id, quote_id
         )
     except ServiceError as error:
+        card_busy = _CARD_BUSY.search(str(error))
+        if card_busy:
+            _print_card_busy(card_busy.group(1))
+            return 1
+        if unknown_checkout_outcome(str(error)):
+            print(f"Payment id: {attempt.payment_id}")
+            raise
         if _FUNDING_REFUSAL not in str(error):
             raise
         print("Checkout: the vault cannot cover this quote. Nothing was sent.")
@@ -474,6 +486,25 @@ def _command_checkout(args: argparse.Namespace, now: int) -> int:
         )
         return 1
     return _review_payment(payment, now)
+
+
+def _print_card_busy(holder: str | None) -> None:
+    print(
+        "Checkout: another payment holds your card. Nothing was saved for this"
+        " payment."
+    )
+    if holder is None:
+        print(
+            "Next: wait until the other payment on your card finishes, then run"
+            " the same checkout again. It reuses the recorded payment id."
+        )
+        return
+    print(
+        f"Next: wait until payment {holder} finishes. Read it with: python3"
+        f" scripts/register.py payment {holder}. When it is completed or"
+        " declined, run the same checkout again. It reuses the recorded"
+        " payment id."
+    )
 
 
 def _command_payment(args: argparse.Namespace, now: int) -> int:

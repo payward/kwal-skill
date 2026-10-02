@@ -25,7 +25,7 @@ Retry a transient connection failure, timeout, HTTP 429, or HTTP 5xx only when t
 
 Never retry registration automatically. A timeout, lost or invalid response, or token-save failure may follow creation of a participant. Preserve any saved files and ask the operator to reconcile the provider outcome before another registration.
 
-A read can be repeated. Repeat a write only when the service contract or the operation guide guarantees that the same request resumes the same operation. Preserve its identifiers. An unknown write outcome needs a status check or operator help before another write.
+A read can be repeated. Repeat a write only when the service contract or the operation guide guarantees that the same request resumes the same operation. Preserve its identifiers. An unknown write outcome needs a status check or operator help before another write. For `checkout`, follow [Checkout errors](checkout.md#errors).
 
 For a failed shipping selection, read the quote before another selection POST.
 An already-selected option needs no new write; follow [Shipping selection](quotes.md#shipping-selection).
