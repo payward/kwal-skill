@@ -60,8 +60,19 @@ request ends. The helper does not send initialize again. It reads status until
 the vault is ready. When many participants set up together, this step can take
 some minutes. Tell the user that provisioning is queued, that it can take some
 minutes, and that the same setup continues. If the deadline occurs at this
-step, the helper prints only the resume command. This is not an error. If setup waits for a deposit, the
-helper prints the funding command immediately while it continues observing.
+step, the helper prints only the resume command. This is not an error.
+
+The issuer steps `sandbox_approval`, `account_creation`,
+`account_verification`, `card_creation`, and `card_verification` also wait in
+a service queue. The service continues them in the background. A Reap timeout
+does not stop the setup. The service sends the same request key again, so it
+does not create a second account or card. The helper prints that card issuer
+setup is queued. Tell the user that it can take some minutes and that the same
+setup continues. If the deadline occurs at one of these steps, the helper
+prints only the resume command. This is not an error.
+
+If setup waits for a deposit, the helper prints the funding command
+immediately while it continues observing.
 Funding still needs the user's authorized wallet transfer.
 
 Ready, an explicit `NEEDS_OPERATOR`, or the deadline ends the wait. HTTP errors
@@ -101,9 +112,10 @@ hash still needs manual investigation.
 After progress, the helper continues within the same five-minute deadline.
 It does not repeat vault reconciliation. If status reports a supported pending
 issuer step, it can resume that step with the same saved owner while checking
-the recorded vault, chain, and transaction. Each server call bounds approval
-work; the helper continues unfinished approval within its total deadline.
-Reap KYC rejection and uncertain account, card, or enrollment writes still need
-an operator. Preserve the credentials and transaction after an error; do not
-register another participant or use another owner. Reconciliation does not
+the recorded vault, chain, and transaction. The service continues unfinished
+approval in the background. The helper reads status within its total
+deadline. Reap KYC rejection, a rejected account or card write, and an
+uncertain enrollment write still need an operator. Preserve the credentials
+and transaction after an error; do not register another participant or use
+another owner. Reconciliation does not
 prove card, funding, or checkout readiness.
