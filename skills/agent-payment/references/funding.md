@@ -33,4 +33,4 @@ Continue to checkout only when the service reports readiness for the required am
 
 - `Required amount must be a whole number of minor units`: use the verified USDC funding amount as an integer from 0 through 18446744073709551615.
 - `Funding response ...`: follow [Debug](debug.md); the response does not match the expected contract.
-- `failed with HTTP 503. (service_error=ParticipantUnavailable ...)`: setup is stopped for operator help. Run `python3 scripts/register.py status` to see the step and report it to the operator. Another deposit does not help.
+- `failed with HTTP 503. (service_error=ParticipantUnavailable ...)`: the provider is busy. Wait, then run the same command again under the [backoff budget](debug.md#retries). Another deposit does not help.

@@ -26,9 +26,11 @@ def problem(tag=TAG):
 
 
 class ErrorDiagnosticsTests(unittest.TestCase):
-    def request_error(self, raw, *, trace=TRACE, token=None, stream=None):
+    def request_error(self, raw, *, trace=TRACE, token=None, stream=None, retry_after=None):
         headers = Message()
         headers["x-trace-id"] = trace
+        if retry_after is not None:
+            headers["Retry-After"] = retry_after
         headers["Set-Cookie"] = "private-cookie"
         body = stream if stream is not None else io.BytesIO(raw)
         error = urllib.error.HTTPError("https://pws.example", 422, "private reason", headers, body)
@@ -103,6 +105,23 @@ class ErrorDiagnosticsTests(unittest.TestCase):
                 self.assertNotIn("trace=", self.request_error(b"{}", trace=trace))
         self.assertNotIn("trace=", self.request_error(b"{}", token=TRACE))
         self.assertNotIn(TAG, self.request_error(json.dumps(problem()).encode(), token=TAG))
+
+    def test_a_retry_after_hint_in_seconds_reaches_the_error_line(self):
+        message = self.request_error(
+            json.dumps(problem("ParticipantUnavailable")).encode(), retry_after="20"
+        )
+        self.assertIn(
+            "(service_error=ParticipantUnavailable; retry_after=20s; trace=01234567...abcdef)",
+            message,
+        )
+
+    def test_a_retry_after_hint_stays_inside_the_backoff_budget(self):
+        self.assertIn("retry_after=300s", self.request_error(b"{}", retry_after="3600"))
+
+    def test_a_retry_after_hint_that_is_not_seconds_is_omitted(self):
+        for hint in ("", "0", "-5", "1.5", "soon", "Wed, 21 Oct 2026 07:28:00 GMT", "9" * 100):
+            with self.subTest(hint=hint):
+                self.assertNotIn("retry_after", self.request_error(b"{}", retry_after=hint))
 
     def test_failed_error_body_read_preserves_status_and_closes_stream(self):
         stream = io.BytesIO()

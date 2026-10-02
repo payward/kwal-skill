@@ -65,6 +65,6 @@ solely to force a redundant selection through.
 - `Shipping address needs <flags>.`: supply the missing required fields, or omit the address if the purchase does not need one.
 - `service_error=ParticipantFundingRequest`: the service cannot price this quote for funding. For an expired quote, create a new one. Otherwise the quote needs USD and the vault needs Ink Sepolia.
 - `shipping` fails with `service_error=ParticipantBadRequest`: read the quote and follow [Shipping selection](#shipping-selection). This includes the provider's `SHIPPING_OPTION_INVALID` rejection. Older deployments returned `ParticipantUnavailable` for that rejection, so a shipping 503 alone does not prove an outage.
-- A `/quotes` route fails with `service_error=ParticipantUnavailable`: the provider did not answer in time. Wait, then run the same command again under the [retry limit](debug.md#retries). The next quote create sends a new provider key.
+- A `/quotes` route fails with `service_error=ParticipantUnavailable`: the provider is busy. Wait, then run the same command again under the [backoff budget](debug.md#retries). The next quote create sends a new provider key.
 - `quote-check` fails on the `/funding` route with `service_error=ParticipantUnavailable`: follow [Funding and readiness](funding.md#errors).
 - An invalid quote response: follow [Debug](debug.md).

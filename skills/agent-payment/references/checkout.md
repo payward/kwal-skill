@@ -50,7 +50,7 @@ In the sandbox, `checkout` does not buy from a shop. No shop receives an order a
 | `Step: card_clearing` with `Payment: processing` | The spend is settling. Read the same payment again. |
 | `Payment: processing` with `ask the operator` in the reason | The results conflict, the vault collection is blocked, or the clearing is above the quote total. Report the reason. Ask the operator to resolve the same payment. Do not start a new checkout. |
 | `Payment: completed` with `Settlement: the vault paid the simulated card spend` | Done. `Charged` is what the vault paid, in USDC. |
-| `Payment: declined` | Kwal declined the spend; the reason names why. A new attempt needs a new quote. |
+| `Payment: declined` | The reason names the party that declined the spend: `declined by Kwal` or `declined by Reap`. Report the reason. A new attempt needs a new quote. |
 | `the vault cannot cover this quote` on `checkout` | Nothing was sent. Run `quote-check` for the quote to see the shortfall, fund the vault ([Funding](funding.md)), then run the same `checkout` again. |
 | `Step: quote_already_used` or `Attached payment` on a new quote | Another payment already holds this quote. Reap returns the same quote for the same item and quantity for about 15 minutes, so a repeat purchase of the same basket reaches the paid quote. Choose another item or quantity, or wait and create a new quote. |
 | `run the same checkout again` in the reason | The sandbox did not take the spend, or its outcome is unknown. Run the same `checkout` command; it reuses the saved payment id and never pays twice. |
@@ -59,6 +59,6 @@ In the sandbox, `checkout` does not buy from a shop. No shop receives an order a
 
 ## Errors
 
-- `checkout` fails with HTTP 502, 503 or 504, or does not complete: a payment may exist. Read the printed `Payment id` with `payment "<payment-id>"`. If it shows a payment state, follow that state and do not submit a second checkout. If it reports `ParticipantNotFound`, nothing was saved: run the same `checkout` again under the [retry limit](debug.md#retries).
+- `checkout` fails with HTTP 502, 503 or 504, or does not complete: a payment may exist. Read the printed `Payment id` with `payment "<payment-id>"`. If it shows a payment state, follow that state and do not submit a second checkout. If it reports `ParticipantNotFound`, nothing was saved: run the same `checkout` again under the [backoff budget](debug.md#retries).
 - An unreadable or unwritable payment record: report it and ask for the last payment id. Observe that payment before another submission.
 - An invalid payment response: follow [Debug](debug.md).

@@ -69,9 +69,24 @@ def _holding_payment(body: dict, token: str | None) -> str | None:
     return None
 
 
+# The agent waits for at most the backoff budget in references/debug.md, so a
+# longer hint is reported as the whole budget.
+_RETRY_AFTER_BUDGET_SECONDS = 300
+
+
+def _retry_after(headers) -> str | None:
+    hint = headers.get("Retry-After") if headers else None
+    if not (isinstance(hint, str) and re.fullmatch(r"[0-9]{1,9}", hint) and int(hint)):
+        return None
+    return f"retry_after={min(int(hint), _RETRY_AFTER_BUDGET_SECONDS)}s"
+
+
 def _error_diagnostics(error: urllib.error.HTTPError, token: str | None) -> str:
     """Best-effort diagnostics must not replace the original HTTP failure."""
     details = []
+    retry_after = _retry_after(error.headers)
+    if retry_after:
+        details.append(retry_after)
     trace = error.headers.get("x-trace-id") if error.headers else None
     if (
         isinstance(trace, str)
