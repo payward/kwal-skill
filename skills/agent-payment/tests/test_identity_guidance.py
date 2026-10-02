@@ -85,16 +85,20 @@ class IdentityGuidanceTests(CommandTests):
         self.assertEqual(service.calls, [])
 
     def test_service_recovery_keeps_selected_credentials(self):
-        for status, tag, next_command in (
-            (503, "ParticipantUnavailable", "status"),
-            (401, "ParticipantUnauthenticated", "check"),
-        ):
-            with self.subTest(tag=tag):
-                with StubService(status=status, payload={"type": f"tag:kraken.com,2025:{tag}"}) as service:
-                    code, _, err = self.run_command("funding", service.url)
-                self.assertEqual(code, 1)
-                self.assertIn(self.expected_command(next_command), err)
-                self.assertNotIn(TOKEN, err)
+        unauthenticated = {"type": "tag:kraken.com,2025:ParticipantUnauthenticated"}
+        with StubService(status=401, payload=unauthenticated) as service:
+            code, _, err = self.run_command("funding", service.url)
+        self.assertEqual(code, 1)
+        self.assertIn(self.expected_command("check"), err)
+        self.assertNotIn(TOKEN, err)
+
+    def test_busy_setup_recovery_keeps_selected_credentials(self):
+        unavailable = {"type": "tag:kraken.com,2025:ParticipantUnavailable"}
+        with StubService(responses=(NOT_STARTED, (503, unavailable))) as service:
+            code, _, err = self.run_command("setup", service.url, "--owner-address", OWNER)
+        self.assertEqual(code, 1)
+        self.assertIn(self.expected_command("status"), err)
+        self.assertNotIn(TOKEN, err)
 
     def test_missing_credentials_recovery_retains_requested_destination(self):
         code, _, err = self.main(["check", "--credentials", str(self.path)])

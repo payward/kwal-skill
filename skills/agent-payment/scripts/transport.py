@@ -40,6 +40,7 @@ _MAX_RESPONSE_BYTES = 64 * 1024
 # Titles, data, provider messages and unknown types can contain private values.
 _ERROR_TAGS = frozenset({
     "ParticipantFundingRequest",
+    "ParticipantCardBusy",
     "ParticipantBadRequest",
     "ParticipantUnauthenticated",
     "ParticipantNotFound",
@@ -50,10 +51,42 @@ _ERROR_TAGS = frozenset({
 })
 _ERROR_TYPES = {f"tag:kraken.com,2025:{tag}": tag for tag in _ERROR_TAGS}
 
+# A busy card names the caller's own holding payment, so that one data field
+# may reach the terminal. It must still look like a payment id the service
+# accepts, because the agent passes it to the next command.
+_PAYMENT_ID = re.compile(r"(?!\.+$)[A-Za-z0-9._~-]{1,128}")
+
+
+def _holding_payment(body: dict, token: str | None) -> str | None:
+    data = body.get("data")
+    holder = data.get("holdingPaymentId") if isinstance(data, dict) else None
+    if (
+        isinstance(holder, str)
+        and _PAYMENT_ID.fullmatch(holder)
+        and not (token and token in holder)
+    ):
+        return holder
+    return None
+
+
+# The agent waits for at most the backoff budget in references/debug.md, so a
+# longer hint is reported as the whole budget.
+_RETRY_AFTER_BUDGET_SECONDS = 300
+
+
+def _retry_after(headers) -> str | None:
+    hint = headers.get("Retry-After") if headers else None
+    if not (isinstance(hint, str) and re.fullmatch(r"[0-9]{1,9}", hint) and int(hint)):
+        return None
+    return f"retry_after={min(int(hint), _RETRY_AFTER_BUDGET_SECONDS)}s"
+
 
 def _error_diagnostics(error: urllib.error.HTTPError, token: str | None) -> str:
     """Best-effort diagnostics must not replace the original HTTP failure."""
     details = []
+    retry_after = _retry_after(error.headers)
+    if retry_after:
+        details.append(retry_after)
     trace = error.headers.get("x-trace-id") if error.headers else None
     if (
         isinstance(trace, str)
@@ -69,6 +102,9 @@ def _error_diagnostics(error: urllib.error.HTTPError, token: str | None) -> str:
             tag = _ERROR_TYPES.get(error_type) if isinstance(error_type, str) else None
             if tag and not (token and token in tag):
                 details.insert(0, f"service_error={tag}")
+                holder = _holding_payment(body, token) if tag == "ParticipantCardBusy" else None
+                if holder:
+                    details.insert(1, f"holding_payment={holder}")
     except (OSError, http.client.HTTPException, ValueError, RecursionError):
         pass
     return f" ({'; '.join(details)})" if details else ""

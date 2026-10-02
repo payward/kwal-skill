@@ -731,6 +731,63 @@ class SimulatedCheckoutRefusalTests(CommandTests):
         recorded = pws_client.AttemptStore(self.path).find("quote_1")
         self.assertIsNotNone(recorded)
 
+    def test_a_busy_card_waits_for_the_holding_payment_and_keeps_the_attempt(self):
+        busy = (
+            409,
+            {
+                "type": "tag:kraken.com,2025:ParticipantCardBusy",
+                "data": {"holdingPaymentId": "pay_0"},
+            },
+        )
+        with (
+            patch("checkout.new_payment_id", return_value="pay_1"),
+            StubService(responses=(QUOTE, busy)) as service,
+        ):
+            code, out, err = self.run_command("checkout", service.url, "quote_1")
+
+        self.assertEqual(code, 1)
+        self.assertIn("another payment holds your card", out)
+        self.assertIn("Nothing was saved", out)
+        self.assertIn("python3 scripts/register.py payment pay_0", out)
+        self.assertIn("run the same checkout again", out)
+        self.assertNotIn("Payment id: pay_1", out)
+        self.assertNotIn("operator", out + err)
+        recorded = pws_client.AttemptStore(self.path).find("quote_1")
+        self.assertEqual(recorded.payment_id, "pay_1")
+
+    def test_a_card_busy_with_another_owner_names_no_payment(self):
+        busy = (409, {"type": "tag:kraken.com,2025:ParticipantCardBusy"})
+        with StubService(responses=(QUOTE, busy)) as service:
+            code, out, err = self.run_command("checkout", service.url, "quote_1")
+
+        self.assertEqual(code, 1)
+        self.assertIn("another payment holds your card", out)
+        self.assertIn("run the same checkout again", out)
+        self.assertNotIn("register.py payment", out)
+        self.assertNotIn("operator", out + err)
+
+    def test_an_unanswered_checkout_reads_the_recorded_payment_before_a_retry(self):
+        for status, body in (
+            (503, {"type": "tag:kraken.com,2025:ParticipantUnavailable"}),
+            (503, {}),
+            (504, {}),
+        ):
+            with (
+                self.subTest(status=status, body=body),
+                patch("checkout.new_payment_id", return_value="pay_1"),
+                StubService(responses=(QUOTE, (status, body))) as service,
+            ):
+                pws_client.AttemptStore(self.path).path.unlink(missing_ok=True)
+                code, out, err = self.run_command("checkout", service.url, "quote_1")
+
+                self.assertEqual(code, 1)
+                self.assertIn("Payment id: pay_1", out)
+                self.assertIn("A payment may exist", err)
+                self.assertIn('python3 scripts/register.py payment "<payment-id>"', err)
+                self.assertIn("ParticipantNotFound", err)
+                self.assertIn("run the same checkout again", err)
+                self.assertNotIn("register.py status", err)
+
     def test_a_quote_another_payment_holds_explains_the_repeat_window(self):
         used = {
             "paymentId": "pay_1",

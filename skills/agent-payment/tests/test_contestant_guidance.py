@@ -5,11 +5,14 @@ project follows that line, so it must name the real cause: a stopped
 participant is not an API contract break, and an unknown id is a wrong id.
 """
 
+import io
 import unittest
+from contextlib import redirect_stderr
 
 from support import CommandTests, StubService
 
 import cli_support
+import vault
 
 TRACE = "trace=01234567...abcdef"
 
@@ -24,13 +27,108 @@ def problem(tag: str) -> dict:
 
 
 class ServiceErrorActionTests(unittest.TestCase):
-    def test_an_unavailable_participant_points_to_the_status_read(self) -> None:
+    def test_a_busy_provider_on_any_participant_route_asks_for_the_same_command(self) -> None:
+        for method, path in (
+            ("GET", "/kwal/participant/v1/products?query=mug"),
+            ("GET", "/kwal/participant/v1/products/prd_1"),
+            ("GET", "/kwal/participant/v1/funding?quoteId=q_1"),
+            ("POST", "/kwal/participant/v1/initialize"),
+            ("GET", "/kwal/participant/v1/status"),
+            ("POST", "/kwal/participant/v1/quotes"),
+            ("GET", "/kwal/participant/v1/quotes/qt_1"),
+            ("POST", "/kwal/participant/v1/quotes/qt_1/shipping"),
+            ("GET", "/kwal/participant/v1/payments/pay_1"),
+        ):
+            with self.subTest(route=f"{method} {path}"):
+                action = cli_support._action_for(
+                    failure(method, path, 503, "ParticipantUnavailable")
+                )
+                self.assertTrue(
+                    action.startswith(
+                        "The provider is busy. Wait, then run the same command again."
+                    ),
+                    action,
+                )
+                self.assertIn("references/debug.md#retries", action)
+                self.assertNotIn("API contract", action)
+
+    def test_the_busy_provider_guidance_gives_the_backoff_budget(self) -> None:
         action = cli_support._action_for(
             failure("GET", "/kwal/participant/v1/funding", 503, "ParticipantUnavailable")
         )
-        self.assertIn("python3 scripts/register.py status", action)
-        self.assertIn("operator", action)
-        self.assertNotIn("API contract", action)
+        self.assertIn("15 to 30 seconds", action)
+        self.assertIn("retry_after", action)
+        self.assertIn("5 minutes", action)
+
+    def test_a_busy_provider_outside_setup_never_asks_for_the_operator(self) -> None:
+        for method, path in (
+            ("GET", "/kwal/participant/v1/products?query=mug"),
+            ("GET", "/kwal/participant/v1/funding"),
+            ("GET", "/kwal/participant/v1/status"),
+            ("POST", "/kwal/participant/v1/quotes"),
+        ):
+            with self.subTest(route=f"{method} {path}"):
+                action = cli_support._action_for(
+                    failure(method, path, 503, "ParticipantUnavailable")
+                )
+                self.assertNotIn("operator", action)
+
+    def test_a_setup_still_busy_after_the_budget_reads_the_setup_state(self) -> None:
+        action = cli_support._action_for(
+            failure("POST", "/kwal/participant/v1/initialize", 503, "ParticipantUnavailable")
+        )
+        busy, after_budget = action.split("After 5 minutes", 1)
+        self.assertNotIn("register.py status", busy)
+        self.assertIn("python3 scripts/register.py status", after_budget)
+        self.assertIn("do not register again", after_budget)
+
+    def test_a_busy_setup_keeps_waiting_before_it_reads_the_setup_state(self) -> None:
+        for status, tag in ((503, "ParticipantUnavailable"), (429, None)):
+            with self.subTest(status=status):
+                err = io.StringIO()
+                with redirect_stderr(err):
+                    cli_support._report(
+                        failure("POST", "/kwal/participant/v1/initialize", status, tag),
+                        next_step="Before any retry, read the same saved setup without resuming: "
+                        "python3 scripts/register.py status",
+                    )
+                self.assertNotIn("Before any retry", err.getvalue())
+                self.assertIn("After 5 minutes", err.getvalue())
+
+    def test_a_throttled_request_waits_like_a_busy_provider(self) -> None:
+        for method, path in (
+            ("GET", "/kwal/participant/v1/products?query=mug"),
+            ("GET", "/kwal/participant/v1/status"),
+            ("POST", "/kwal/participant/v1/quotes"),
+        ):
+            with self.subTest(route=f"{method} {path}"):
+                action = cli_support._action_for(failure(method, path, 429))
+                self.assertTrue(action.startswith("The provider is busy."), action)
+                self.assertIn("5 minutes", action)
+
+    def test_a_service_that_did_not_answer_follows_the_backoff_budget(self) -> None:
+        for message in (
+            failure("GET", "/kwal/participant/v1/status", 502),
+            "GET /kwal/participant/v1/products?query=mug did not complete.",
+            failure("POST", "/kwal/participant/v1/payments", 504),
+        ):
+            with self.subTest(message=message):
+                action = cli_support._action_for(message)
+                self.assertIn("backoff budget", action)
+                self.assertIn("5 minutes", action)
+                self.assertNotIn("retry limit", action)
+
+    def test_a_busy_provider_on_a_checkout_reads_the_payment_first(self) -> None:
+        action = cli_support._action_for(
+            failure("POST", "/kwal/participant/v1/payments", 503, "ParticipantUnavailable")
+        )
+        self.assertTrue(action.startswith("The provider is busy."), action)
+        self.assertIn("A payment may exist", action)
+        self.assertIn(
+            "ParticipantNotFound, the service saved nothing. Wait, then run the same "
+            "command again.",
+            action,
+        )
 
     def test_an_unknown_id_asks_for_the_printed_id(self) -> None:
         action = cli_support._action_for(
@@ -79,6 +177,20 @@ class ServiceErrorActionTests(unittest.TestCase):
                 )
                 self.assertIn("references/debug.md#retries", action)
 
+    def test_an_unanswered_checkout_reads_the_payment_before_a_retry(self) -> None:
+        for message in (
+            failure("POST", "/kwal/participant/v1/payments", 503, "ParticipantUnavailable"),
+            failure("POST", "/kwal/participant/v1/payments", 502),
+            "POST /kwal/participant/v1/payments did not complete.",
+        ):
+            with self.subTest(message=message):
+                action = cli_support._action_for(message)
+                self.assertIn("A payment may exist", action)
+                self.assertIn('python3 scripts/register.py payment "<payment-id>"', action)
+                self.assertIn("ParticipantNotFound", action)
+                self.assertIn("references/debug.md#retries", action)
+                self.assertNotIn("register.py status", action)
+
     def test_an_interrupted_request_follows_the_retry_limit(self) -> None:
         action = cli_support._action_for("GET /kwal/participant/v1/status did not complete.")
         self.assertIn("references/debug.md#retries", action)
@@ -87,6 +199,7 @@ class ServiceErrorActionTests(unittest.TestCase):
         for status, tag in (
             (503, "ParticipantUnavailable"),
             (409, "ParticipantRegistrationNeedsOperator"),
+            (429, "ParticipantRegistrationRateLimited"),
         ):
             with self.subTest(tag=tag):
                 action = cli_support._action_for(
@@ -118,6 +231,19 @@ class StatusCommandTests(CommandTests):
         self.assertEqual(service.calls, [("GET", "/kwal/participant/v1/status")])
         self.assertIn(f"Owner address: {OWNER}", out)
         self.assertIn("Setup: processing at sandbox_approval", out)
+        self.assertIn("python3 scripts/register.py setup", out)
+
+    def test_status_explains_a_queued_vault(self) -> None:
+        body = {
+            "state": "PARTICIPANT_SETUP_STATE_PENDING",
+            "step": "vault_deployment",
+            "ownerAddress": OWNER,
+        }
+        with StubService(payload=body) as service:
+            code, out, err = self.run_command("status", service.url)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(service.calls, [("GET", "/kwal/participant/v1/status")])
+        self.assertIn(vault.VAULT_QUEUED, out)
         self.assertIn("python3 scripts/register.py setup", out)
 
     def test_status_reports_an_operator_stop_as_the_next_step(self) -> None:

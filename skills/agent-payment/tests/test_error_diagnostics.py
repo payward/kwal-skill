@@ -26,9 +26,11 @@ def problem(tag=TAG):
 
 
 class ErrorDiagnosticsTests(unittest.TestCase):
-    def request_error(self, raw, *, trace=TRACE, token=None, stream=None):
+    def request_error(self, raw, *, trace=TRACE, token=None, stream=None, retry_after=None):
         headers = Message()
         headers["x-trace-id"] = trace
+        if retry_after is not None:
+            headers["Retry-After"] = retry_after
         headers["Set-Cookie"] = "private-cookie"
         body = stream if stream is not None else io.BytesIO(raw)
         error = urllib.error.HTTPError("https://pws.example", 422, "private reason", headers, body)
@@ -65,6 +67,30 @@ class ErrorDiagnosticsTests(unittest.TestCase):
         self.assertIn(TAG, message)
         self.assertNotIn("private", message)
 
+    def test_a_busy_card_names_only_a_valid_holding_payment(self):
+        busy = problem("ParticipantCardBusy")
+        message = self.request_error(
+            json.dumps(busy | {"data": {"holdingPaymentId": "pay_0"}}).encode()
+        )
+        self.assertIn("service_error=ParticipantCardBusy; holding_payment=pay_0", message)
+        for holder in ("", "..", "pay 0", "pay_0\nprivate", "p" * 129, ["pay_0"], 7):
+            with self.subTest(holder=holder):
+                message = self.request_error(
+                    json.dumps(busy | {"data": {"holdingPaymentId": holder}}).encode()
+                )
+                self.assertIn("service_error=ParticipantCardBusy", message)
+                self.assertNotIn("holding_payment", message)
+        message = self.request_error(
+            json.dumps(busy | {"data": {"holdingPaymentId": TRACE}}).encode(), token=TRACE
+        )
+        self.assertNotIn("holding_payment", message)
+
+    def test_only_a_busy_card_names_a_holding_payment(self):
+        message = self.request_error(
+            json.dumps(problem() | {"data": {"holdingPaymentId": "pay_0"}}).encode()
+        )
+        self.assertNotIn("holding_payment", message)
+
     def test_malformed_oversized_and_deep_bodies_keep_http_status(self):
         for raw in (b"", b"<html>private</html>", b"\xff", b"[" * 2000, b" " * 65536 + b"{}"):
             with self.subTest(length=len(raw)):
@@ -79,6 +105,23 @@ class ErrorDiagnosticsTests(unittest.TestCase):
                 self.assertNotIn("trace=", self.request_error(b"{}", trace=trace))
         self.assertNotIn("trace=", self.request_error(b"{}", token=TRACE))
         self.assertNotIn(TAG, self.request_error(json.dumps(problem()).encode(), token=TAG))
+
+    def test_a_retry_after_hint_in_seconds_reaches_the_error_line(self):
+        message = self.request_error(
+            json.dumps(problem("ParticipantUnavailable")).encode(), retry_after="20"
+        )
+        self.assertIn(
+            "(service_error=ParticipantUnavailable; retry_after=20s; trace=01234567...abcdef)",
+            message,
+        )
+
+    def test_a_retry_after_hint_stays_inside_the_backoff_budget(self):
+        self.assertIn("retry_after=300s", self.request_error(b"{}", retry_after="3600"))
+
+    def test_a_retry_after_hint_that_is_not_seconds_is_omitted(self):
+        for hint in ("", "0", "-5", "1.5", "soon", "Wed, 21 Oct 2026 07:28:00 GMT", "9" * 100):
+            with self.subTest(hint=hint):
+                self.assertNotIn("retry_after", self.request_error(b"{}", retry_after=hint))
 
     def test_failed_error_body_read_preserves_status_and_closes_stream(self):
         stream = io.BytesIO()
