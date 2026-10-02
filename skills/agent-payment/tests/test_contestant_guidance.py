@@ -10,6 +10,7 @@ import unittest
 from support import CommandTests, StubService
 
 import cli_support
+import vault
 
 TRACE = "trace=01234567...abcdef"
 
@@ -132,6 +133,19 @@ class StatusCommandTests(CommandTests):
         self.assertEqual(service.calls, [("GET", "/kwal/participant/v1/status")])
         self.assertIn(f"Owner address: {OWNER}", out)
         self.assertIn("Setup: processing at sandbox_approval", out)
+        self.assertIn("python3 scripts/register.py setup", out)
+
+    def test_status_explains_a_queued_vault(self) -> None:
+        body = {
+            "state": "PARTICIPANT_SETUP_STATE_PENDING",
+            "step": "vault_deployment",
+            "ownerAddress": OWNER,
+        }
+        with StubService(payload=body) as service:
+            code, out, err = self.run_command("status", service.url)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(service.calls, [("GET", "/kwal/participant/v1/status")])
+        self.assertIn(vault.VAULT_QUEUED, out)
         self.assertIn("python3 scripts/register.py setup", out)
 
     def test_status_reports_an_operator_stop_as_the_next_step(self) -> None:

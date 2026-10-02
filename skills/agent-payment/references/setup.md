@@ -52,7 +52,15 @@ evidence once. Let it finish without prompting the user between processing
 steps. It never registers a participant or switches the owner.
 
 Only supported `PENDING` issuer steps resume initialization. Other pending
-steps are observed through status reads. If setup waits for a deposit, the
+steps are observed through status reads.
+
+At `vault_deployment`, the service has saved the request and put the vault in
+a queue. The service deploys one vault at a time, and continues when the
+request ends. The helper does not send initialize again. It reads status until
+the vault is ready. When many participants set up together, this step can take
+some minutes. Tell the user that provisioning is queued, that it can take some
+minutes, and that the same setup continues. If the deadline occurs at this
+step, the helper prints only the resume command. This is not an error. If setup waits for a deposit, the
 helper prints the funding command immediately while it continues observing.
 Funding still needs the user's authorized wallet transfer.
 

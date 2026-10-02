@@ -346,6 +346,40 @@ class SetupCommandTests(CommandTests):
         self.assertIn(f"python3 scripts/register.py setup --credentials {self.path}", out)
         self.assertNotIn(TOKEN, out + err)
 
+    def test_a_queued_vault_at_the_wait_limit_gives_the_resume_command(self) -> None:
+        queued = PENDING | {"step": "vault_deployment"}
+        with StubService(responses=(queued,)) as service:
+            code, out, err = self.run_setup(service.url)
+            self.assertEqual(
+                service.calls,
+                [("GET", pws_client.STATUS_PATH)]
+                * (vault.SETUP_WAIT_SECONDS // pws_client.POLL_INTERVAL_SECONDS),
+            )
+        self.assertEqual((code, err), (0, ""))
+        self.assertEqual(self.elapsed, vault.SETUP_WAIT_SECONDS)
+        self.assertEqual(out.count(vault.VAULT_QUEUED), 1)
+        self.assertNotIn("wait limit reached", out)
+        self.assertNotIn("not ready", out)
+        self.assertIn(
+            f"Next: resume the same saved setup: python3 scripts/register.py setup --credentials {self.path}",
+            out,
+        )
+
+    def test_a_queued_vault_is_explained_once_before_later_steps(self) -> None:
+        queued = PENDING | {"step": "vault_deployment"}
+        issuer = PENDING | {"step": "sandbox_approval"}
+        issued = PENDING | {"step": "deposit_observation", "cardStatus": "ACTIVE"}
+        with StubService(responses=(queued, queued, issuer, issued)) as service:
+            code, out, err = self.run_setup(service.url)
+            self.assertEqual(
+                service.calls[:4],
+                [("GET", pws_client.STATUS_PATH)] * 3 + [("POST", pws_client.INITIALIZE_PATH)],
+            )
+            self.assertEqual(service.calls.count(("POST", pws_client.INITIALIZE_PATH)), 1)
+            self.assertEqual(json.loads(service.bodies[3]), {"ownerAddress": OWNER})
+        self.assertEqual((code, err), (0, ""))
+        self.assertEqual(out.count(vault.VAULT_QUEUED), 1)
+
     def test_a_different_saved_owner_is_rejected_without_initialization(self) -> None:
         with StubService(responses=(READY | {"ownerAddress": VAULT},)) as service:
             code, _, err = self.run_setup(service.url, "--owner-address", OWNER)
