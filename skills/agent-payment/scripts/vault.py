@@ -35,6 +35,30 @@ INITIALIZE_PATH = "/kwal/participant/v1/initialize"
 
 
 SETUP_WAIT_SECONDS = 300
+VAULT_QUEUED = (
+    "Vault provisioning is queued. It can take some minutes when many "
+    "participants set up together. The same setup continues."
+)
+ISSUER_QUEUED = (
+    "Card issuer setup is queued. It can take some minutes when many "
+    "participants set up together. The same setup continues."
+)
+ISSUER_QUEUED_STEPS = frozenset({
+    "sandbox_approval", "account_creation", "account_verification",
+    "card_creation", "card_verification",
+})
+
+
+def _queue_notice(setup: Setup) -> str | None:
+    """The service runs these steps in a background queue, so a long wait
+    at one of them is expected progress, not a failure."""
+    if setup.state != "pending":
+        return None
+    if setup.step == "vault_deployment":
+        return VAULT_QUEUED
+    if setup.step in ISSUER_QUEUED_STEPS:
+        return ISSUER_QUEUED
+    return None
 
 
 SETUP_STATES = frozenset({"not_started", "pending", "ready", "needs_operator"})
@@ -173,10 +197,7 @@ def _can_resume_setup(setup: Setup) -> bool:
         setup.state == "pending"
         and setup.owner_address is not None
         and (
-            setup.step in {
-                "issuer_setup", "sandbox_approval", "account_creation",
-                "account_verification", "card_verification",
-            }
+            setup.step == "issuer_setup" or setup.step in ISSUER_QUEUED_STEPS
             or (setup.step == "card_enrollment" and setup.card_status == "ACTIVE"
                 and setup.enrollment_id is None)
         )
@@ -592,6 +613,8 @@ def _print_setup_state(setup: Setup, *, credentials: str | None = None) -> None:
         print(f"Next: run the funding command to check the test funds: {funding_command}")
         return
     print(f"Setup: processing{'' if setup.step is None else f' at {setup.step}'}")
+    if (notice := _queue_notice(setup)) is not None:
+        print(notice)
     if setup.card_status == "ACTIVE":
         print(
             "Next: run the funding command to check funds and get any needed "
@@ -653,6 +676,8 @@ def _command_setup(args: argparse.Namespace, now: int) -> int:
             lines.append("Setup: ready for checkout")
         else:
             lines.append(f"Setup: processing{'' if current.step is None else f' at {current.step}'}")
+        if (notice := _queue_notice(current)) is not None:
+            lines.append(notice)
         if current.step == "deposit_observation":
             lines.append(f"Next: run the funding command for deposit instructions: {funding_command}")
         for line in lines:
@@ -732,7 +757,8 @@ def _command_setup(args: argparse.Namespace, now: int) -> int:
     else:
         if setup.state == "not_started":
             setup_command += f" --owner-address {shlex.quote(owner_address)}"
-        print(f"Setup wait limit reached ({SETUP_WAIT_SECONDS} seconds); setup is not ready.")
+        if _queue_notice(setup) is None:
+            print(f"Setup wait limit reached ({SETUP_WAIT_SECONDS} seconds); setup is not ready.")
         print(f"Next: resume the same saved setup: {setup_command}")
         if setup.card_status == "ACTIVE" and setup.step == "card_enrollment":
             print("Checkout still needs card enrollment.")

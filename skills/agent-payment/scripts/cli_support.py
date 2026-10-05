@@ -120,12 +120,6 @@ _ACTIONS: tuple[tuple[tuple[str, ...], str], ...] = (
 # cause, so it decides the next step before the route prefix does. Registration
 # keeps its own rule: any failed registration may have created a participant.
 _SERVICE_ERROR_ACTIONS: dict[str, str] = {
-    "ParticipantUnavailable": (
-        "Read the setup state with: {status}. If it "
-        "reports an operator stop, report the step and ask the operator to resolve "
-        "it for this participant; do not register again. Otherwise follow the "
-        "retry limit in references/debug.md#retries."
-    ),
     "ParticipantNotFound": (
         "Check the id. Use an id printed by this skill for the same credentials, "
         "then run the command again. A quote or payment from another participant "
@@ -166,13 +160,68 @@ _SHIPPING_BAD_REQUEST_ACTION = (
     "selection."
 )
 
+_BACKOFF = (
+    "wait 15 to 30 seconds between attempts, for up to 5 minutes. When the "
+    "error line shows a retry_after value of more than 15 seconds, wait that value."
+)
+_BACKOFF_BUDGET = f"Follow the backoff budget in references/debug.md#retries: {_BACKOFF}"
+
 _RETRY_ACTION = (
-    "Follow the retry limit in references/debug.md#retries. If the failure "
-    "persists, report the error line and the trace to the operator."
+    f"{_BACKOFF_BUDGET} After 5 minutes, report the error line and the trace "
+    "to the operator."
 )
 
 _SERVICE_ERROR = re.compile(r"service_error=(\w+)")
 _GATEWAY_FAILURE = re.compile(r"^(GET|POST) \S+ (failed with HTTP 50[234]\.|did not complete\.)")
+
+# The service can save a checkout and then fail to answer, so a failed answer
+# does not prove that nothing was saved.
+_UNKNOWN_CHECKOUT = re.compile(
+    r"^POST /kwal/participant/v1/payments (failed with HTTP 50[234]\.|did not complete\.)"
+)
+_UNKNOWN_CHECKOUT_ACTION = (
+    "A payment may exist. Read the payment id printed above with: python3 "
+    'scripts/register.py payment "<payment-id>". If it shows a payment state, '
+    "follow that output and do not submit a second checkout. If it reports "
+    "ParticipantNotFound, the service saved nothing. Wait, then run the same "
+    "command again. To run the same checkout again, follow the backoff budget in "
+    f"references/debug.md#retries: {_BACKOFF} It reuses the recorded payment id."
+)
+
+
+# Many participants share one provider quota, so the service answers
+# "unavailable" while it waits in line for the provider. That wait can last
+# minutes and ends on its own, so the agent keeps the same command and waits.
+# A quote retry gets a new provider key, so the same command can succeed.
+_PARTICIPANT_ROUTE = re.compile(r"^(GET|POST) /kwal/participant/v1/(?!register[/? ])\S+ ")
+_THROTTLED = re.compile(r"^\S+ \S+ failed with HTTP 429\.")
+_BUSY_PROVIDER_ACTION = "The provider is busy."
+_BUSY_PROVIDER_RETRY_ACTION = (
+    f"{_BUSY_PROVIDER_ACTION} Wait, then run the same command again. "
+    f"{_BACKOFF_BUDGET} After 5 minutes, report the error line and the last "
+    "known state to the user."
+)
+# Setup also answers "unavailable" for a participant that only an operator
+# can release, so a wait that outlasts the budget reads the setup state.
+_SETUP_BUSY_ACTION = (
+    f"{_BUSY_PROVIDER_ACTION} Wait, then run the same command again. "
+    f"{_BACKOFF_BUDGET} After 5 minutes, read the setup state with: {{status}}. "
+    "If it reports an operator stop, report the "
+    "step and ask the operator to resolve it for this participant; do not "
+    "register again."
+)
+
+
+def unknown_checkout_outcome(message: str) -> bool:
+    return bool(_UNKNOWN_CHECKOUT.match(message))
+
+
+def _busy_provider(message: str) -> bool:
+    tag = _SERVICE_ERROR.search(message)
+    unavailable = bool(tag and tag.group(1) == "ParticipantUnavailable")
+    return bool(
+        _PARTICIPANT_ROUTE.match(message) and (unavailable or _THROTTLED.match(message))
+    )
 
 
 def _command_line(command: str, credentials: str | None = None) -> str:
@@ -182,6 +231,14 @@ def _command_line(command: str, credentials: str | None = None) -> str:
 
 
 def _action_template_for(message: str) -> str:
+    if unknown_checkout_outcome(message):
+        if _busy_provider(message):
+            return f"{_BUSY_PROVIDER_ACTION} {_UNKNOWN_CHECKOUT_ACTION}"
+        return _UNKNOWN_CHECKOUT_ACTION
+    if _busy_provider(message):
+        if message.startswith("POST /kwal/participant/v1/initialize "):
+            return _SETUP_BUSY_ACTION
+        return _BUSY_PROVIDER_RETRY_ACTION
     if not message.startswith("POST /kwal/participant/v1/register"):
         tag = _SERVICE_ERROR.search(message)
         if (
@@ -207,7 +264,11 @@ def _action_template_for(message: str) -> str:
 
 
 def _action_for(message: str, *, credentials: str | None = None) -> str:
-    return _action_template_for(message).format(
+    return _filled_action(_action_template_for(message), credentials)
+
+
+def _filled_action(template: str, credentials: str | None) -> str:
+    return template.format(
         register=_command_line("register", credentials),
         setup=_command_line("setup --owner-address <address>", credentials),
         payment=_command_line("payment <payment-id>", credentials),
@@ -221,8 +282,11 @@ def _report(
     error: str, *, next_step: str | None = None, credentials: str | None = None,
 ) -> None:
     print(f"error: {error}", file=sys.stderr)
-    action = _action_for(error, credentials=credentials)
-    if next_step is not None:
+    template = _action_template_for(error)
+    action = _filled_action(template, credentials)
+    # A busy setup already says when to read the setup state; an earlier read
+    # would stop the agent before the backoff budget ends.
+    if next_step is not None and template != _SETUP_BUSY_ACTION:
         action += f" {next_step}"
     print(f"action: {action}", file=sys.stderr)
 

@@ -29,7 +29,7 @@ Select the operation that matches the request:
 Resume an existing payment with [Checkout and payment status](references/checkout.md). For a new purchase:
 
 1. Use a valid saved session, or [register a participant](#register-a-participant) when authorized.
-2. Create or check the [vault and card](references/vault-and-card.md) for that session. Let `setup` continue through resumable processing for up to five minutes without asking the user to continue. Follow the command's next step on readiness, an operator stop, or the deadline.
+2. Create or check the [vault and card](references/vault-and-card.md) for that session. Let `setup` continue through resumable processing for up to five minutes without asking the user to continue. Follow the command's next step on readiness, an operator stop, or the deadline. While setup is at `vault_deployment`, tell the user three things: vault provisioning is queued, it can take some minutes when many participants set up together, and the same setup continues. This wait is not an error.
 3. [Fund the vault](references/funding.md) with test USDC from the owner wallet.
 4. [Select a product](references/products.md) and resolve a purchasable variant.
 5. [Prepare a quote](references/quotes.md), including required shipping choices and funding readiness for the final total. If the desired shipping option is already selected, keep it; see [Shipping selection](references/quotes.md#shipping-selection).

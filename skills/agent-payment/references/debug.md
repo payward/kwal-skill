@@ -21,16 +21,28 @@ Give both lines to the user verbatim. Apply the authorization rule in [Register 
 
 ## Retries
 
-Retry a transient connection failure, timeout, HTTP 429, or HTTP 5xx only when the operation is safe to repeat. Allow at most two retries: wait 2 seconds, then 5 seconds. Use a longer server retry delay when one is available.
+Many participants share one provider quota. When the provider is busy, the service puts the request in a queue. The service can answer "unavailable" for several minutes. The queue moves without operator help. Keep the same command and wait.
+
+Retry only when the operation is safe to repeat. Use the backoff budget for the error class:
+
+| Error class | Error line | Backoff budget |
+| --- | --- | --- |
+| Provider busy | `service_error=ParticipantUnavailable` or HTTP 429 | Wait 15 to 30 seconds between attempts, for up to 5 minutes from the first failure. |
+| No answer | HTTP 502, 503 or 504 without `service_error`, or `did not complete` | Wait 15 to 30 seconds between attempts, for up to 5 minutes from the first failure. |
+| Unknown checkout outcome | `checkout` with HTTP 502, 503 or 504, or `did not complete` | Read the payment first. Then use the no-answer budget. See [Checkout errors](checkout.md#errors). |
+| Registration | Any failure of `register` | No retry. See the next paragraph. |
+| Input, credentials, or a permanent failure | Any other `service_error` | No retry. Follow the `action:` line. |
+
+When the error line shows `retry_after=<n>s` and `<n>` is more than 15, wait `<n>` seconds before the next attempt. After 5 minutes, stop and report the error line and the last known state. If `setup` fails for 5 minutes, read the state with `python3 scripts/register.py status`. An operator stop needs the operator.
 
 Never retry registration automatically. A timeout, lost or invalid response, or token-save failure may follow creation of a participant. Preserve any saved files and ask the operator to reconcile the provider outcome before another registration.
 
-A read can be repeated. Repeat a write only when the service contract or the operation guide guarantees that the same request resumes the same operation. Preserve its identifiers. An unknown write outcome needs a status check or operator help before another write.
+A read can be repeated. Repeat a write only when the service contract or the operation guide guarantees that the same request resumes the same operation. Preserve its identifiers. An unknown write outcome needs a status check or operator help before another write. For `checkout`, follow [Checkout errors](checkout.md#errors).
 
 For a failed shipping selection, read the quote before another selection POST.
 An already-selected option needs no new write; follow [Shipping selection](quotes.md#shipping-selection).
 
-Correct invalid input or configuration before another attempt. Stop on a permanent failure, an invalid service response, or an exhausted retry budget. Report the error and the last known state.
+Correct invalid input or configuration before another attempt. Stop on a permanent failure, an invalid service response, or an exhausted backoff budget. Report the error and the last known state.
 
 ## Diagnose local configuration or credentials
 
