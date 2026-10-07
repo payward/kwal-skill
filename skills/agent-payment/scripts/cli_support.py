@@ -160,6 +160,38 @@ _SHIPPING_BAD_REQUEST_ACTION = (
     "selection."
 )
 
+# A refused quote names the input to change, so each reason has its own step.
+_BAD_REQUEST_REASON_ACTIONS: dict[str, str] = {
+    "SHIPPING_ADDRESS_REQUIRED": (
+        "The provider needs a shipping address for this quote. Ask the user for "
+        "the shipping address, then run the same quote command again with the "
+        "address flags. See: python3 scripts/register.py quote --help."
+    ),
+    "REQUEST_REJECTED": (
+        "The provider refused the quote request. Check the variant, quantity and "
+        "shipping address with the user, then run the quote command again with "
+        "corrected values. Do not retry the same request unchanged."
+    ),
+    "VALIDATION_FAILED": (
+        "The provider refused a value in the request. Check the shipping address "
+        "and quantity with the user, then run the command again with corrected "
+        "values. Do not retry the same request unchanged."
+    ),
+    "QUOTE_UNFULFILLABLE": (
+        "The provider cannot fulfil this purchase. Ask the user to choose another "
+        "variant or product. Do not retry the same request."
+    ),
+    "VARIANT_UNAVAILABLE": (
+        "This variant is not available now. Ask the user to choose another "
+        "variant or product. Do not retry the same request."
+    ),
+    "SHIPPING_OPTION_INVALID": _SHIPPING_BAD_REQUEST_ACTION,
+    "VARIANT_NOT_FOUND": (
+        "The provider does not know this variant. Use a variant id printed by "
+        "the last variant command, and run the quote command again."
+    ),
+}
+
 _BACKOFF = (
     "wait 15 to 30 seconds between attempts, for up to 5 minutes. When the "
     "error line shows a retry_after value of more than 15 seconds, wait that value."
@@ -172,6 +204,7 @@ _RETRY_ACTION = (
 )
 
 _SERVICE_ERROR = re.compile(r"service_error=(\w+)")
+_BAD_REQUEST_REASON = re.compile(r"bad_request_reason=(\w+)")
 _GATEWAY_FAILURE = re.compile(r"^(GET|POST) \S+ (failed with HTTP 50[234]\.|did not complete\.)")
 
 # The service can save a checkout and then fail to answer, so a failed answer
@@ -247,6 +280,9 @@ def _action_template_for(message: str) -> str:
             and message.startswith("POST /kwal/participant/v1/initialize")
         ):
             return _SETUP_BAD_REQUEST_ACTION
+        reason = _BAD_REQUEST_REASON.search(message)
+        if reason and reason.group(1) in _BAD_REQUEST_REASON_ACTIONS:
+            return _BAD_REQUEST_REASON_ACTIONS[reason.group(1)]
         if (
             tag
             and tag.group(1) == "ParticipantBadRequest"

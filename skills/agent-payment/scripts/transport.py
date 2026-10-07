@@ -69,6 +69,29 @@ def _holding_payment(body: dict, token: str | None) -> str | None:
     return None
 
 
+# A bad request names the input to change. Only the reasons the API declares
+# may reach the terminal, so an unknown value is dropped.
+_BAD_REQUEST_REASON_PREFIX = "PARTICIPANT_BAD_REQUEST_REASON_"
+_BAD_REQUEST_REASONS = frozenset({
+    "SHIPPING_ADDRESS_REQUIRED",
+    "REQUEST_REJECTED",
+    "VALIDATION_FAILED",
+    "QUOTE_UNFULFILLABLE",
+    "VARIANT_UNAVAILABLE",
+    "SHIPPING_OPTION_INVALID",
+    "VARIANT_NOT_FOUND",
+})
+
+
+def _bad_request_reason(body: dict) -> str | None:
+    data = body.get("data")
+    reason = data.get("reason") if isinstance(data, dict) else None
+    if not (isinstance(reason, str) and reason.startswith(_BAD_REQUEST_REASON_PREFIX)):
+        return None
+    name = reason.removeprefix(_BAD_REQUEST_REASON_PREFIX)
+    return name if name in _BAD_REQUEST_REASONS else None
+
+
 # The agent waits for at most the backoff budget in references/debug.md, so a
 # longer hint is reported as the whole budget.
 _RETRY_AFTER_BUDGET_SECONDS = 300
@@ -105,6 +128,9 @@ def _error_diagnostics(error: urllib.error.HTTPError, token: str | None) -> str:
                 holder = _holding_payment(body, token) if tag == "ParticipantCardBusy" else None
                 if holder:
                     details.insert(1, f"holding_payment={holder}")
+                reason = _bad_request_reason(body) if tag == "ParticipantBadRequest" else None
+                if reason:
+                    details.insert(1, f"bad_request_reason={reason}")
     except (OSError, http.client.HTTPException, ValueError, RecursionError):
         pass
     return f" ({'; '.join(details)})" if details else ""

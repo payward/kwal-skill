@@ -332,6 +332,21 @@ class QuoteCommandTests(CommandTests):
         self.assertEqual(code, 0)
         self.assertIn("Total: 1.50 USD", out)
 
+    def test_a_quote_the_provider_needs_an_address_for_asks_for_one(self):
+        refusal = {
+            "type": "tag:kraken.com,2025:ParticipantBadRequest",
+            "data": {"reason": "PARTICIPANT_BAD_REQUEST_REASON_SHIPPING_ADDRESS_REQUIRED"},
+        }
+        with StubService(responses=((400, refusal),)) as service:
+            code, _, err = self.run_command(
+                "quote", service.url, "--email", "buyer@example.com", "--variant", "var_1"
+            )
+            self.assertEqual(service.calls, [("POST", pws_client.QUOTES_PATH)])
+        self.assertEqual(code, 1)
+        self.assertIn("bad_request_reason=SHIPPING_ADDRESS_REQUIRED", err)
+        self.assertIn("needs a shipping address", err)
+        self.assertNotIn("Correct the command input", err)
+
     def test_a_partial_address_stops_before_the_service(self):
         with StubService(responses=(QUOTE,)) as service:
             code, _, err = self.run_command(

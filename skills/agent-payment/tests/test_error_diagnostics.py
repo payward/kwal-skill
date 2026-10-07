@@ -91,6 +91,37 @@ class ErrorDiagnosticsTests(unittest.TestCase):
         )
         self.assertNotIn("holding_payment", message)
 
+    def test_a_bad_request_names_only_a_declared_reason(self):
+        refused = problem("ParticipantBadRequest")
+        message = self.request_error(json.dumps(refused | {"data": {
+            "reason": "PARTICIPANT_BAD_REQUEST_REASON_SHIPPING_ADDRESS_REQUIRED"
+        }}).encode())
+        self.assertIn(
+            "service_error=ParticipantBadRequest; bad_request_reason=SHIPPING_ADDRESS_REQUIRED",
+            message,
+        )
+        for reason in (
+            "SHIPPING_ADDRESS_REQUIRED",
+            "PARTICIPANT_BAD_REQUEST_REASON_UNSPECIFIED",
+            "PARTICIPANT_BAD_REQUEST_REASON_private-token",
+            "PARTICIPANT_BAD_REQUEST_REASON_VALIDATION_FAILED\nprivate",
+            ["PARTICIPANT_BAD_REQUEST_REASON_VALIDATION_FAILED"],
+            7,
+        ):
+            with self.subTest(reason=reason):
+                message = self.request_error(
+                    json.dumps(refused | {"data": {"reason": reason}}).encode()
+                )
+                self.assertIn("service_error=ParticipantBadRequest", message)
+                self.assertNotIn("bad_request_reason", message)
+                self.assertNotIn("private", message)
+
+    def test_only_a_bad_request_names_a_reason(self):
+        message = self.request_error(json.dumps(problem() | {"data": {
+            "reason": "PARTICIPANT_BAD_REQUEST_REASON_VALIDATION_FAILED"
+        }}).encode())
+        self.assertNotIn("bad_request_reason", message)
+
     def test_malformed_oversized_and_deep_bodies_keep_http_status(self):
         for raw in (b"", b"<html>private</html>", b"\xff", b"[" * 2000, b" " * 65536 + b"{}"):
             with self.subTest(length=len(raw)):

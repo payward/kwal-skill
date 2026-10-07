@@ -151,6 +151,32 @@ class ServiceErrorActionTests(unittest.TestCase):
         self.assertIn("Correct", action)
         self.assertNotIn("API contract", action)
 
+    def test_each_bad_request_reason_names_its_own_step(self) -> None:
+        quotes = ("POST", "/kwal/participant/v1/quotes")
+        shipping = ("POST", "/kwal/participant/v1/quotes/qt_1/shipping")
+        for route, reason, expected in (
+            (quotes, "SHIPPING_ADDRESS_REQUIRED", "needs a shipping address"),
+            (quotes, "REQUEST_REJECTED", "refused the quote request"),
+            (quotes, "VALIDATION_FAILED", "refused a value in the request"),
+            (quotes, "QUOTE_UNFULFILLABLE", "cannot fulfil this purchase"),
+            (quotes, "VARIANT_UNAVAILABLE", "variant is not available now"),
+            (quotes, "VARIANT_NOT_FOUND", "does not know this variant"),
+            (shipping, "SHIPPING_OPTION_INVALID", "Do not retry the same rejected selection"),
+        ):
+            with self.subTest(reason=reason):
+                message = failure(*route, 400, "ParticipantBadRequest").replace(
+                    "; trace=", f"; bad_request_reason={reason}; trace="
+                )
+                action = cli_support._action_for(message)
+                self.assertIn(expected, action)
+                self.assertNotIn("Correct the command input", action)
+
+    def test_an_unknown_bad_request_reason_keeps_the_generic_step(self) -> None:
+        message = failure(
+            "POST", "/kwal/participant/v1/quotes", 400, "ParticipantBadRequest"
+        ).replace("; trace=", "; bad_request_reason=SOMETHING_NEW; trace=")
+        self.assertIn("Correct the command input", cli_support._action_for(message))
+
     def test_a_refused_setup_names_the_owner_address(self) -> None:
         action = cli_support._action_for(
             failure("POST", "/kwal/participant/v1/initialize", 400, "ParticipantBadRequest")
